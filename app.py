@@ -7,7 +7,7 @@ import json
 RECORD_FILE = 'yugioh_records.csv'
 META_FILE = 'metadata_config.json'
 
-st.set_page_config(page_title="YGO Rating Analysis", layout="wide")
+st.set_page_config(page_title="Rating Analysis", layout="wide")
 
 # --- 2. [디자인] 시스템 요소 숨기기 및 분석 레이아웃 CSS ---
 st.markdown("""

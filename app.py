@@ -296,6 +296,8 @@ if page=="📊 Record":
 
 # ---------------- Analysis ----------------
 
+# ---------------- Analysis ----------------
+
 elif page=="📈 Analysis":
 
     st.title("📈 Rating Analysis")
@@ -306,15 +308,172 @@ elif page=="📈 Analysis":
 
         st.markdown('<div class="analysis-wrapper">',unsafe_allow_html=True)
 
-        st.markdown(render_styled_table("Overall",df),unsafe_allow_html=True)
+        # -------- Overall --------
+
+        calc=df[df["결과"].isin(["승","패"])]
+
+        total=len(calc)
+        w=len(calc[calc["결과"]=="승"])
+        l=len(calc[calc["결과"]=="패"])
+
+        win_rate=(w/total*100) if total else 0
+
+        first=calc[calc["선후공"]=="선"]
+        second=calc[calc["선후공"]=="후"]
+
+        f_total=len(first)
+        s_total=len(second)
+
+        f_w=len(first[first["결과"]=="승"])
+        s_w=len(second[second["결과"]=="승"])
+
+        f_rate=(f_w/f_total*100) if f_total else 0
+        s_rate=(s_w/s_total*100) if s_total else 0
+
+        overall_table=f"""
+        <table class='styled-table'>
+
+        <tr><th colspan=5>Overall</th></tr>
+
+        <tr>
+        <th>Games</th>
+        <th>WinRate</th>
+        <th>W</th>
+        <th>L</th>
+        <th>-</th>
+        </tr>
+
+        <tr>
+        <td>{total}</td>
+        <td>{win_rate:.2f}%</td>
+        <td class='win-val'>{w}</td>
+        <td class='loss-val'>{l}</td>
+        <td>-</td>
+        </tr>
+
+        <tr>
+        <th>1st</th>
+        <th>2nd</th>
+        <th>-</th>
+        <th>-</th>
+        <th>-</th>
+        </tr>
+
+        <tr>
+        <td>{f_total}</td>
+        <td>{s_total}</td>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+        </tr>
+
+        <tr>
+        <th>1st W%</th>
+        <th>2nd W%</th>
+        <th>-</th>
+        <th>-</th>
+        <th>-</th>
+        </tr>
+
+        <tr>
+        <td>{f_rate:.1f}%</td>
+        <td>{s_rate:.1f}%</td>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+        </tr>
+
+        </table>
+        """
+
+        st.markdown(overall_table,unsafe_allow_html=True)
+
+        # -------- 덱 승률 --------
 
         st.subheader("덱 승률")
 
         my=st.selectbox("내 덱",st.session_state.metadata["my_decks"])
 
         deck_df=df[df["내 덱"]==my]
+        calc=deck_df[deck_df["결과"].isin(["승","패"])]
 
-        st.markdown(render_styled_table(my,deck_df),unsafe_allow_html=True)
+        total=len(calc)
+        w=len(calc[calc["결과"]=="승"])
+        l=len(calc[calc["결과"]=="패"])
+
+        win_rate=(w/total*100) if total else 0
+
+        first=calc[calc["선후공"]=="선"]
+        second=calc[calc["선후공"]=="후"]
+
+        f_total=len(first)
+        s_total=len(second)
+
+        f_w=len(first[first["결과"]=="승"])
+        s_w=len(second[second["결과"]=="승"])
+
+        f_rate=(f_w/f_total*100) if f_total else 0
+        s_rate=(s_w/s_total*100) if s_total else 0
+
+        deck_table=f"""
+        <table class='styled-table'>
+
+        <tr><th colspan=5>{my}</th></tr>
+
+        <tr>
+        <th>Games</th>
+        <th>WinRate</th>
+        <th>W</th>
+        <th>L</th>
+        <th>-</th>
+        </tr>
+
+        <tr>
+        <td>{total}</td>
+        <td>{win_rate:.2f}%</td>
+        <td class='win-val'>{w}</td>
+        <td class='loss-val'>{l}</td>
+        <td>-</td>
+        </tr>
+
+        <tr>
+        <th>1st</th>
+        <th>2nd</th>
+        <th>-</th>
+        <th>-</th>
+        <th>-</th>
+        </tr>
+
+        <tr>
+        <td>{f_total}</td>
+        <td>{s_total}</td>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+        </tr>
+
+        <tr>
+        <th>1st W%</th>
+        <th>2nd W%</th>
+        <th>-</th>
+        <th>-</th>
+        <th>-</th>
+        </tr>
+
+        <tr>
+        <td>{f_rate:.1f}%</td>
+        <td>{s_rate:.1f}%</td>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+        </tr>
+
+        </table>
+        """
+
+        st.markdown(deck_table,unsafe_allow_html=True)
+
+        # -------- Matchup Table --------
 
         st.subheader("Matchup Table")
 

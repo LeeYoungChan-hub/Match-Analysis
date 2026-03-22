@@ -10,12 +10,29 @@ META_FILE = 'metadata_config.json'
 
 st.set_page_config(page_title="YGO Rating System", layout="wide")
 
-# 🔥 [UI 최적화] 표의 줄 3개와 연필 아이콘을 강제로 숨기는 CSS
+# 🔥 [UI 최적화] 줄 3개/연필 숨기기 + 모든 텍스트 중앙 정렬 CSS
 st.markdown("""
     <style>
+    /* 1. 표 왼쪽의 행 핸들 숨기기 */
     [data-testid="stTableIdxColumn"] { display: none; }
+    
+    /* 2. 셀 수정 시 나타나는 연필 아이콘 숨기기 */
     .st-ae svg { display: none !important; }
+    
+    /* 3. 데이터 에디터 하단 툴바 숨기기 */
     [data-testid="stDataEditorToolbar"] { display: none; }
+    
+    /* 4. 표 내부 모든 셀의 텍스트를 중앙 정렬 */
+    [data-testid="stDataFrame"] div[role="gridcell"] > div {
+        justify-content: center !important;
+        text-align: center !important;
+    }
+    
+    /* 5. 표 헤더(컬럼명) 텍스트를 중앙 정렬 */
+    [data-testid="stDataFrame"] div[role="columnheader"] > div {
+        justify-content: center !important;
+        text-align: center !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -103,25 +120,26 @@ if page == "📊 Rating (전적 기록/분석)":
         st.session_state.df = pd.concat([df, new_row], ignore_index=True)
         st.rerun()
 
-    # ✨ 체크박스 설정이 완벽히 복구된 데이터 에디터 ✨
+    # 데이터 에디터
     edited_df = st.data_editor(
         st.session_state.df, 
         use_container_width=True, 
         num_rows="dynamic",
         hide_index=True,
-        key="rating_editor_v2_final",
+        key="rating_editor_v3",
         column_config={
             "NO.": st.column_config.NumberColumn("No.", disabled=True, width="small"),
+            "날짜": st.column_config.TextColumn("날짜", width="medium"),
             "선후공": st.column_config.SelectboxColumn("선/후", options=["선", "후"], width="small"),
             "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width="small"),
-            "매치 상세": st.column_config.SelectboxColumn("세트전적", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width="small"),
+            "매치 상세": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width="small"),
             "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata["my_decks"]),
             "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata["opp_decks"]),
             "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata["archetypes"]),
             "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata["target_cards"]),
             "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.metadata["win_loss_reasons"]),
-            "브릭": st.column_config.CheckboxColumn("브릭", width="small"), # 체크박스 복구
-            "실수": st.column_config.CheckboxColumn("실수", width="small"), # 체크박스 복구
+            "브릭": st.column_config.CheckboxColumn("브릭", width="small"),
+            "실수": st.column_config.CheckboxColumn("실수", width="small"),
             "비고": st.column_config.TextColumn("비고", width="large")
         }
     )

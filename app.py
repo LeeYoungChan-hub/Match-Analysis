@@ -148,8 +148,6 @@ if page == "📊 Rating (전적 기록/분석)":
         "비고": st.column_config.TextColumn("비고", width="large", alignment="center")
     }
 )
-        }
-    )
 
     if st.button("💾 Rating 데이터 저장 및 업데이트", type="primary"):
         st.session_state.df = edited_df

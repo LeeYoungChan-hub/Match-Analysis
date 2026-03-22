@@ -18,12 +18,22 @@ def load_data():
         return df
     else:
         columns = ["NO.", "날짜", "선후공", "결과", "세트 전적", "점수", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
-        # 가이드 행 레이블 복구
+        # 요청하신 서브 라벨 완벽 복구
         sub_label_row = {
-            "NO.": "경기", "날짜": "Date", "선후공": "40.46%", "결과": "62.43%", 
-            "세트 전적": "Result", "점수": "Rate", "내 덱": "Use.deck", 
-            "상대 덱": "Opp. deck", "아키타입": "Plus Arch.", "승패 요인": "W/L Factor",
-            "특정 카드": "Certain Card", "브릭": "10", "실수": "30", "비고": "Deatil"
+            "NO.": "경기", 
+            "날짜": "Date", 
+            "선후공": "40.46%", 
+            "결과": "62.43%", 
+            "세트 전적": "Result", 
+            "점수": "Rate", 
+            "내 덱": "Use.deck", 
+            "상대 덱": "Opp. deck", 
+            "아키타입": "Plus Arch.", 
+            "승패 요인": "W/L Factor",
+            "특정 카드": "Certain Card", 
+            "브릭": "10", 
+            "실수": "30", 
+            "비고": "Detail"
         }
         return pd.DataFrame([sub_label_row], columns=columns)
 
@@ -34,9 +44,12 @@ def load_settings():
                 return json.load(f)
         except: pass
     return {
-        "내 덱": ["KT", "SwoS", "Synchron"], "상대 덱": ["Mitsu", "Ennea", "DD", "Red Dra", "Branded", "Maliss"],
-        "특정 카드": ["TT Talent", "Droll", "Nibiru"], "승패 요인": ["자신 실력", "상대 패", "특정 카드", "운"],
-        "아키타입": ["60", "Arch"], "table_height": 20000
+        "내 덱": ["KT", "SwoS", "Synchron"], 
+        "상대 덱": ["Mitsu", "Ennea", "DD", "Red Dra", "Branded", "Maliss"],
+        "특정 카드": ["TT Talent", "Droll", "Nibiru"], 
+        "승패 요인": ["자신 실력", "상대 패", "특정 카드", "운"],
+        "아키타입": ["60", "Arch"], 
+        "table_height": 20000
     }
 
 if 'df' not in st.session_state:
@@ -47,12 +60,11 @@ if 'options' not in st.session_state:
 tab1, tab2 = st.tabs(["📊 Record", "⚙️ Setting"])
 
 # ---------------------------------------------------------
-# TAB 1: Record (st.fragment 적용으로 렉 방지)
+# TAB 1: Record (프래그먼트 최적화 및 라벨 복구)
 # ---------------------------------------------------------
 with tab1:
     st.title("📊 Rating Dashboard")
 
-    # 부분 업데이트를 위한 프래그먼트 정의
     @st.fragment
     def render_record_table():
         current_df = st.session_state.df.copy()
@@ -67,7 +79,7 @@ with tab1:
             data_df,
             num_rows="dynamic",
             use_container_width=True,
-            height=20000, # 요청하신 높이 고정
+            height=20000, 
             key="data_editor",
             column_config={
                 "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"]),
@@ -83,24 +95,29 @@ with tab1:
             }
         )
 
-        # 통계 계산 및 가이드 행 업데이트
+        # 통계 자동 업데이트 로직
         total_games = len(edited_data)
         if total_games > 0:
+            # 1. 승률 및 선공 비율
             win_rate = (edited_data["결과"] == "승").sum() / total_games * 100
             first_rate = (edited_data["선후공"] == "선").sum() / total_games * 100
+            
+            # 2. 마지막 입력된 경기 번호 가져오기 (NO. 열의 마지막 값)
+            last_no = str(edited_data["NO."].iloc[-1]) if not edited_data["NO."].empty else "0"
+            
+            # 가이드 행 업데이트
             edited_guide.at[0, "결과"] = f"{win_rate:.2f}%"
             edited_guide.at[0, "선후공"] = f"{first_rate:.2f}%"
             edited_guide.at[0, "브릭"] = str(edited_data["브릭"].sum())
             edited_guide.at[0, "실수"] = str(edited_data["실수"].sum())
-            edited_guide.at[0, "NO."] = f"{total_games}판"
+            edited_guide.at[0, "NO."] = last_no # 마지막 경기 숫자 표시
 
-        # 데이터가 바뀌었을 때만 세션 업데이트 및 파일 저장
+        # 세션 업데이트 및 자동 저장
         new_df = pd.concat([edited_guide, edited_data], ignore_index=True)
         if not new_df.equals(st.session_state.df):
             st.session_state.df = new_df
             new_df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
 
-    # 프래그먼트 실행
     render_record_table()
 
 # ---------------------------------------------------------

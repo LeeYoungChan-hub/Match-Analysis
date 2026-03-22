@@ -64,7 +64,6 @@ _compact_layout_css()
 FILENAME = "2026.03 레이팅 - Record.csv"
 # NO. ~ 점수 열 공통 너비 (픽셀)
 COL_W_NO_TO_SCORE = "70px"
-CELL_ALIGN = "center"
 
 if 'df' not in st.session_state:
     try:
@@ -261,20 +260,20 @@ if page == "📊 Record":
         hide_index=True,
         key="guide_editor",
         column_config={
-            "NO.": st.column_config.TextColumn("NO.", disabled=True, width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
-            "날짜": st.column_config.TextColumn("날짜", width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
-            "선후공": st.column_config.TextColumn("선후공", width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
-            "결과": st.column_config.TextColumn("결과", width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
-            "세트": st.column_config.TextColumn("세트", width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
-            "점수": st.column_config.TextColumn("점수", disabled=True, width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
-            "브릭": st.column_config.NumberColumn("브릭", format="%d", disabled=True, align=CELL_ALIGN),
-            "실수": st.column_config.NumberColumn("실수", format="%d", disabled=True, align=CELL_ALIGN),
-            "내 덱": st.column_config.TextColumn("내 덱", align=CELL_ALIGN),
-            "상대 덱": st.column_config.TextColumn("상대 덱", align=CELL_ALIGN),
-            "아키타입": st.column_config.TextColumn("아키타입", align=CELL_ALIGN),
-            "승패 요인": st.column_config.TextColumn("승패 요인", align=CELL_ALIGN),
-            "특정 카드": st.column_config.TextColumn("특정 카드", align=CELL_ALIGN),
-            "비고": st.column_config.TextColumn("비고", align=CELL_ALIGN),
+            "NO.": st.column_config.TextColumn("NO.", disabled=True, width=COL_W_NO_TO_SCORE),
+            "날짜": st.column_config.TextColumn("날짜", width=COL_W_NO_TO_SCORE),
+            "선후공": st.column_config.TextColumn("선후공", width=COL_W_NO_TO_SCORE),
+            "결과": st.column_config.TextColumn("결과", width=COL_W_NO_TO_SCORE),
+            "세트": st.column_config.TextColumn("세트", width=COL_W_NO_TO_SCORE),
+            "점수": st.column_config.TextColumn("점수", disabled=True, width=COL_W_NO_TO_SCORE),
+            "브릭": st.column_config.NumberColumn("브릭", format="%d", disabled=True),
+            "실수": st.column_config.NumberColumn("실수", format="%d", disabled=True),
+            "내 덱": st.column_config.TextColumn("내 덱"),
+            "상대 덱": st.column_config.TextColumn("상대 덱"),
+            "아키타입": st.column_config.TextColumn("아키타입"),
+            "승패 요인": st.column_config.TextColumn("승패 요인"),
+            "특정 카드": st.column_config.TextColumn("특정 카드"),
+            "비고": st.column_config.TextColumn("비고"),
         },
     )
 
@@ -286,20 +285,20 @@ if page == "📊 Record":
         height=320,
         key="data_editor",
         column_config={
-            "NO.": st.column_config.TextColumn("NO.", width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
-            "날짜": st.column_config.TextColumn("날짜", width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
-            "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
-            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
-            "세트": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
-            "점수": st.column_config.TextColumn("점수", width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
-            "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.options["내 덱"], align=CELL_ALIGN),
-            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.options["상대 덱"], align=CELL_ALIGN),
-            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.options["특정 카드"], align=CELL_ALIGN),
-            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.options["승패 요인"], align=CELL_ALIGN),
-            "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.options["아키타입"], align=CELL_ALIGN),
+            "NO.": st.column_config.TextColumn("NO.", width=COL_W_NO_TO_SCORE),
+            "날짜": st.column_config.TextColumn("날짜", width=COL_W_NO_TO_SCORE),
+            "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], width=COL_W_NO_TO_SCORE),
+            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width=COL_W_NO_TO_SCORE),
+            "세트": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=COL_W_NO_TO_SCORE),
+            "점수": st.column_config.TextColumn("점수", width=COL_W_NO_TO_SCORE),
+            "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.options["내 덱"]),
+            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.options["상대 덱"]),
+            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.options["특정 카드"]),
+            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.options["승패 요인"]),
+            "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.options["아키타입"]),
             "브릭": st.column_config.CheckboxColumn("브릭", default=False),
             "실수": st.column_config.CheckboxColumn("실수", default=False),
-            "비고": st.column_config.TextColumn("비고", align=CELL_ALIGN),
+            "비고": st.column_config.TextColumn("비고"),
         }
     )
     st.session_state.last_edited_record_data = edited_data.copy()

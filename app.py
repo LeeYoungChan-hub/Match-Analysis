@@ -8,7 +8,7 @@ st.set_page_config(page_title="Rating Dashboard", layout="wide", initial_sidebar
 # 표(data_editor) 스타일 설정
 CELL_FONT_PX = "10px"
 COL_W_NO_TO_SCORE = "92px"
-COL_W_STATUS = "45px" # 색상 칸 너비 최소화
+COL_W_STATUS = "25px" # 색상 칸 너비 최소화
 
 def _compact_layout_css() -> None:
     st.markdown(

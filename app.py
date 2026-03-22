@@ -289,12 +289,12 @@ if page == "📊 Record":
             "세트 전적": st.column_config.SelectboxColumn(
                 "세트",
                 options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"],
-                width=85
+                width=60
             ),
 
             "점수": st.column_config.TextColumn(
                 "점수",
-                width=50
+                width=60
             ),
 
             "내 덱": st.column_config.SelectboxColumn(

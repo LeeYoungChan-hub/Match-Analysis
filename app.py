@@ -159,73 +159,72 @@ if page == "📊 Record":
 
 elif page == "📈 Analysis":
     st.title("📈 Rating Analysis")
-    df_ana = load_records()
+    
+    # 1. 데이터 로드 및 클리닝 (CSV의 헤더 문제를 해결하기 위함)
+    raw_df = load_records()
+    # 첫 번째 행이 "경기", "Date" 등 설명인 경우 제거
+    df_ana = raw_df[pd.to_numeric(raw_df['NO.'], errors='coerce').notnull()].copy()
     
     if not df_ana.empty:
-        # 1. 상단 Overall 요약
+        # 상단 요약 레이아웃
         st.markdown('<div class="analysis-wrapper">', unsafe_allow_html=True)
         st.markdown(render_styled_table("Overall Summary", df_ana), unsafe_allow_html=True)
         
-        # 2. 내 덱 선택 필터 (전체 리스트 필터링용)
         st.subheader("내 덱 선택")
         sel_my = st.selectbox("내 덱 선택", st.session_state.metadata["my_decks"], label_visibility="collapsed")
         st.markdown('</div>', unsafe_allow_html=True)
 
         st.divider()
 
-        # 3. [상대 덱 전체 리스트 표] - 이미지 캡처 스타일
-        st.subheader(f"📊 {sel_my} vs 모든 상대 덱 지표")
+        # --- 2번 표: Matchup Analysis (이미지 캡처 형식 완벽 재현) ---
+        st.subheader(f"📊 {sel_my} vs 상대 덱별 상세 지표")
         
         matchup_df = df_ana[df_ana['내 덱'] == sel_my]
         calc_df = matchup_df[matchup_df['결과'].isin(['승', '패'])]
         all_opp_decks = st.session_state.metadata.get("opp_decks", [])
-        
+
         if all_opp_decks:
-            total_games_all = len(calc_df)
+            total_g = len(calc_df)
             
-            # HTML 표 빌드
-            table_html = """
-            <table class="styled-table" style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            # HTML 표 생성 시작
+            table_html = f"""
+            <table class="styled-table" style="width:100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background-color: #fbbc04 !important; color: black; font-weight: bold;">
-                        <th style="width: 20%; padding: 8px; border: 1px solid #dee2e6;">Matchup</th>
-                        <th style="padding: 8px; border: 1px solid #dee2e6;">Total</th>
-                        <th style="padding: 8px; border: 1px solid #dee2e6;">W</th>
-                        <th style="padding: 8px; border: 1px solid #dee2e6;">L</th>
-                        <th style="padding: 8px; border: 1px solid #dee2e6; background-color: #e69138; color: white;">W%</th>
-                        <th style="padding: 8px; border: 1px solid #dee2e6;">1st W%</th>
-                        <th style="padding: 8px; border: 1px solid #dee2e6;">2nd W%</th>
-                        <th style="padding: 8px; border: 1px solid #dee2e6;">Share</th>
+                        <th style="width:20%; border: 1px solid #dee2e6;">Matchup</th>
+                        <th style="border: 1px solid #dee2e6;">Total</th>
+                        <th style="border: 1px solid #dee2e6;">W</th>
+                        <th style="border: 1px solid #dee2e6;">L</th>
+                        <th style="background-color: #e69138; color: white; border: 1px solid #dee2e6;">W%</th>
+                        <th style="border: 1px solid #dee2e6;">1st W%</th>
+                        <th style="border: 1px solid #dee2e6;">2nd W%</th>
+                        <th style="border: 1px solid #dee2e6;">Share</th>
                     </tr>
                 </thead>
                 <tbody>
             """
-            
-            # Total 합계 행
+
+            # [Total 행 계산]
             tw = len(calc_df[calc_df['결과'] == '승'])
             tl = len(calc_df[calc_df['결과'] == '패'])
             tf = calc_df[calc_df['선후공'] == '선']
             ts = calc_df[calc_df['선후공'] == '후']
             tfw = (len(tf[tf['결과'] == '승']) / len(tf) * 100) if len(tf) > 0 else 0
             tsw = (len(ts[ts['결과'] == '승']) / len(ts) * 100) if len(ts) > 0 else 0
-            
+
             table_html += f"""
                 <tr style="background-color: #fff2cc; font-weight: bold;">
-                    <td style="padding: 8px; border: 1px solid #dee2e6;">Total</td>
-                    <td style="padding: 8px; border: 1px solid #dee2e6;">{total_games_all}</td>
-                    <td style="padding: 8px; border: 1px solid #dee2e6; color: blue;">{tw}</td>
-                    <td style="padding: 8px; border: 1px solid #dee2e6; color: red;">{tl}</td>
-                    <td style="padding: 8px; border: 1px solid #dee2e6;">{(tw/total_games_all*100 if total_games_all>0 else 0):.2f}%</td>
-                    <td style="padding: 8px; border: 1px solid #dee2e6;">{tfw:.2f}%</td>
-                    <td style="padding: 8px; border: 1px solid #dee2e6;">{tsw:.2f}%</td>
-                    <td style="padding: 8px; border: 1px solid #dee2e6;">100.00%</td>
+                    <td>Total</td><td>{total_g}</td><td class="win-val">{tw}</td><td class="loss-val">{tl}</td>
+                    <td>{(tw/total_g*100 if total_g>0 else 0):.2f}%</td>
+                    <td>{tfw:.2f}%</td><td>{tsw:.2f}%</td><td>100.00%</td>
                 </tr>
             """
 
-            # 개별 덱 행
+            # [개별 덱 행 계산] - 설정된 모든 덱 루프
             for opp in all_opp_decks:
                 opp_sub = calc_df[calc_df['상대 덱'] == opp]
                 g = len(opp_sub)
+                
                 if g > 0:
                     w = len(opp_sub[opp_sub['결과'] == '승'])
                     l = len(opp_sub[opp_sub['결과'] == '패'])
@@ -233,51 +232,41 @@ elif page == "📈 Analysis":
                     s_sub = opp_sub[opp_sub['선후공'] == '후']
                     fw = (len(f_sub[f_sub['결과'] == '승']) / len(f_sub) * 100) if len(f_sub) > 0 else 0
                     sw = (len(s_sub[s_sub['결과'] == '승']) / len(s_sub) * 100) if len(s_sub) > 0 else 0
-                    share = (g / total_games_all * 100) if total_games_all > 0 else 0
+                    share = (g / total_g * 100) if total_g > 0 else 0
+                    
                     table_html += f"""
                         <tr>
-                            <td style="padding: 8px; border: 1px solid #dee2e6; font-weight: bold;">{opp}</td>
-                            <td style="padding: 8px; border: 1px solid #dee2e6;">{g}</td>
-                            <td style="padding: 8px; border: 1px solid #dee2e6; color: blue;">{w}</td>
-                            <td style="padding: 8px; border: 1px solid #dee2e6; color: red;">{l}</td>
-                            <td style="padding: 8px; border: 1px solid #dee2e6; font-weight: bold;">{(w/g*100):.2f}%</td>
-                            <td style="padding: 8px; border: 1px solid #dee2e6;">{fw:.2f}%</td>
-                            <td style="padding: 8px; border: 1px solid #dee2e6;">{sw:.2f}%</td>
-                            <td style="padding: 8px; border: 1px solid #dee2e6;">{share:.2f}%</td>
+                            <td style="font-weight: bold; text-align: left !important; padding-left: 10px;">{opp}</td>
+                            <td>{g}</td><td class="win-val">{w}</td><td class="loss-val">{l}</td>
+                            <td style="font-weight: bold;">{(w/g*100):.2f}%</td>
+                            <td>{fw:.2f}%</td><td>{sw:.2f}%</td><td>{share:.2f}%</td>
                         </tr>
                     """
                 else:
+                    # 데이터가 없는 덱도 0으로 한 줄씩 표시
                     table_html += f"""
                         <tr style="color: #adb5bd;">
-                            <td style="padding: 8px; border: 1px solid #dee2e6;">{opp}</td>
-                            <td style="padding: 8px; border: 1px solid #dee2e6;">0</td>
-                            <td style="padding: 8px; border: 1px solid #dee2e6;">0</td>
-                            <td style="padding: 8px; border: 1px solid #dee2e6;">0</td>
-                            <td style="padding: 8px; border: 1px solid #dee2e6;">0.00%</td>
-                            <td style="padding: 8px; border: 1px solid #dee2e6;">0.00%</td>
-                            <td style="padding: 8px; border: 1px solid #dee2e6;">0.00%</td>
-                            <td style="padding: 8px; border: 1px solid #dee2e6;">0.00%</td>
+                            <td style="text-align: left !important; padding-left: 10px;">{opp}</td>
+                            <td>0</td><td>0</td><td>0</td><td>0.00%</td><td>0.00%</td><td>0.00%</td><td>0.00%</td>
                         </tr>
                     """
+
             table_html += "</tbody></table>"
             st.markdown(table_html, unsafe_allow_html=True)
-            
+
         st.divider()
 
-        # 4. [복구됨] 상대 덱별 승률 개별 선택 분석기
+        # 3. 특정 매치업 상세 분석 (기존 코드 유지)
         st.subheader("🎯 특정 매치업 상세 분석")
         c1, c2 = st.columns(2)
-        with c1: 
-            m_my = st.selectbox("Use.Deck", st.session_state.metadata["my_decks"], key="m_my")
-        with c2: 
-            m_opp = st.selectbox("Opp.Deck", st.session_state.metadata["opp_decks"], key="m_opp")
+        with c1: m_my = st.selectbox("Use.Deck", st.session_state.metadata["my_decks"], key="m_my")
+        with c2: m_opp = st.selectbox("Opp.Deck", st.session_state.metadata["opp_decks"], key="m_opp")
         
-        # 필터링 및 렌더링
         specific_match_df = df_ana[(df_ana['내 덱'] == m_my) & (df_ana['상대 덱'] == m_opp)]
         st.markdown(render_styled_table(f"{m_my} vs {m_opp} 결과", specific_match_df), unsafe_allow_html=True)
 
     else:
-        st.warning("먼저 'Record' 페이지에서 경기를 기록해주세요.")
+        st.warning("기록된 데이터가 없거나 CSV 형식이 맞지 않습니다.")
 
 else:
     st.title("⚙️ Setting")

@@ -5,11 +5,11 @@ import pandas as pd
 # 1. 페이지 설정
 st.set_page_config(page_title="Rating Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
-# 열 너비 설정 (사용자 요청 반영)
+# 열 너비 설정
 CELL_FONT_PX = "10px"
-COL_W_STATUS = 30  # 색상 셀 30
-COL_W_NO = 80      # NO. 셀 확대
-COL_W_SMALL = 55   # 선후공, 결과 셀 축소
+COL_W_STATUS = 30  
+COL_W_NO = 80      
+COL_W_SMALL = 55   
 COL_W_FIXED = "92px"
 
 def _compact_layout_css() -> None:
@@ -19,7 +19,7 @@ def _compact_layout_css() -> None:
         .block-container {{ padding-top: 0.45rem !important; padding-bottom: 0.5rem !important; padding-left: 0.55rem !important; padding-right: 0.55rem !important; max-width: 100% !important; }}
         [data-testid="stDataFrame"] {{ margin-bottom: 0.15rem !important; font-size: {CELL_FONT_PX} !important; }}
         
-        /* 중앙 정렬 및 여백 최적화 */
+        /* 중앙 정렬 최적화 */
         [data-testid="stDataFrame"] [role="gridcell"], 
         [data-testid="stDataFrame"] [role="columnheader"] {{ 
             text-align: center !important; 
@@ -27,7 +27,7 @@ def _compact_layout_css() -> None:
             padding: 0px !important;
         }}
         
-        /* 하단 탭 스타일 강조 */
+        /* 하단 탭 스타일 */
         .stTabs [data-baseweb="tab-list"] {{
             justify-content: center !important;
             border-top: 1px solid #ddd;
@@ -40,7 +40,7 @@ def _compact_layout_css() -> None:
 
 _compact_layout_css()
 
-# 2. 데이터 초기화
+# 2. 데이터 및 옵션 초기화
 FILENAME = "2026.03 레이팅 - Record.csv"
 STATUS_OPTS = ["⚪", "🔵", "🟠"]
 
@@ -66,7 +66,7 @@ if 'options' not in st.session_state:
         "상대 덱": ["Mitsu", "Ennea", "DD", "Red Dra", "Branded", "Maliss"],
         "특정 카드": ["TT Talent", "Droll", "Nibiru"],
         "승패 요인": ["자신 실력", "상대 패", "특정 카드", "운"],
-        "아키타입": ["60", "Arch"]
+        "아키타입": ["60", "Pure", "Engine"]
     }
 
 # --- 필수 헬퍼 함수 ---
@@ -94,7 +94,7 @@ def _sanitize_for_editor(df: pd.DataFrame, is_guide=False) -> pd.DataFrame:
     return out
 
 # ---------------------------------------------------------
-# 메인 레이아웃 (상단 기록 -> 하단 탭 메뉴)
+# 메인 레이아웃
 # ---------------------------------------------------------
 st.title("📊 Rating Dashboard")
 
@@ -129,19 +129,21 @@ with tab_record:
             "점수": st.column_config.TextColumn("점수", width=COL_W_FIXED),
             "브릭": st.column_config.CheckboxColumn("브릭"),
             "실수": st.column_config.CheckboxColumn("실수"),
+            # 요청하신 드롭다운 설정들
             "내 덱": st.column_config.SelectboxColumn("내 덱", options=[""] + st.session_state.options["내 덱"]),
             "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=[""] + st.session_state.options["상대 덱"]),
+            "아키타입": st.column_config.SelectboxColumn("아키타입", options=[""] + st.session_state.options["아키타입"]),
+            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=[""] + st.session_state.options["특정 카드"]),
+            "승패 요인": st.column_config.SelectboxColumn("요인", options=[""] + st.session_state.options["승패 요인"]),
         }
     )
 
     if st.button("💾 데이터 저장", type="primary", use_container_width=True):
-        # 통계 재계산 로직
         total = len(edited_data)
         wins = len(edited_data[edited_data["결과"] == "승"])
         firsts = len(edited_data[edited_data["선후공"] == "선"])
         b_sum, m_sum = _brick_mistake_sums(edited_data)
         
-        # 가이드 행 업데이트
         if total > 0:
             guide_df.iloc[0, guide_df.columns.get_loc("결과")] = f"{(wins/total)*100:.1f}%"
             guide_df.iloc[0, guide_df.columns.get_loc("선후공")] = f"{(firsts/total)*100:.1f}%"
@@ -157,17 +159,23 @@ with tab_record:
         st.rerun()
 
 with tab_setting:
-    st.subheader("⚙️ 덱 및 카드 목록 관리")
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        new_my = st.text_area("내 덱", value="\n".join(st.session_state.options["내 덱"]), height=250)
-    with c2:
-        new_opp = st.text_area("상대 덱", value="\n".join(st.session_state.options["상대 덱"]), height=250)
-    with c3:
-        new_card = st.text_area("특정 카드", value="\n".join(st.session_state.options["특정 카드"]), height=250)
+    st.subheader("⚙️ 리스트 관리 (한 줄에 하나씩 입력)")
     
-    if st.button("✅ 변경 사항 적용", use_container_width=True):
+    # 2단 레이아웃으로 설정창 구성
+    c1, c2 = st.columns(2)
+    with c1:
+        new_my = st.text_area("내 덱", value="\n".join(st.session_state.options["내 덱"]), height=150)
+        new_arch = st.text_area("아키타입", value="\n".join(st.session_state.options["아키타입"]), height=150)
+    with c2:
+        new_opp = st.text_area("상대 덱", value="\n".join(st.session_state.options["상대 덱"]), height=150)
+        new_card = st.text_area("특정 카드", value="\n".join(st.session_state.options["특정 카드"]), height=150)
+    
+    new_factor = st.text_input("승패 요인 (쉼표로 구분)", value=", ".join(st.session_state.options["승패 요인"]))
+
+    if st.button("✅ 모든 설정 적용", use_container_width=True):
         st.session_state.options["내 덱"] = [x.strip() for x in new_my.split("\n") if x.strip()]
+        st.session_state.options["아키타입"] = [x.strip() for x in new_arch.split("\n") if x.strip()]
         st.session_state.options["상대 덱"] = [x.strip() for x in new_opp.split("\n") if x.strip()]
         st.session_state.options["특정 카드"] = [x.strip() for x in new_card.split("\n") if x.strip()]
-        st.success("설정되었습니다.")
+        st.session_state.options["승패 요인"] = [x.strip() for x in new_factor.split(",") if x.strip()]
+        st.success("설정이 드롭다운에 적용되었습니다. Game Record 탭에서 확인하세요!")

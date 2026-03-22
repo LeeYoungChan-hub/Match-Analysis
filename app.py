@@ -143,6 +143,53 @@ def _single_guide_row(guide: pd.DataFrame) -> pd.DataFrame:
     return guide.iloc[[0]].copy().reset_index(drop=True)
 
 
+def _sanitize_guide_for_editor(df: pd.DataFrame) -> pd.DataFrame:
+    """data_editor(Text/Number)와 dtype 호환: CSV에서 온 float/int를 문자열·정수로 통일."""
+    out = df.copy()
+    for c in ["NO.", "날짜", "선후공", "결과", "세트", "점수"]:
+        if c in out.columns:
+            out[c] = out[c].map(_display_cell_str)
+    for c in ["내 덱", "상대 덱", "특정 카드", "승패 요인", "아키타입", "비고"]:
+        if c in out.columns:
+            out[c] = out[c].map(_display_cell_str)
+    for c in ["브릭", "실수"]:
+        if c in out.columns:
+            out[c] = pd.to_numeric(out[c], errors="coerce").fillna(0).astype(int)
+    return out
+
+
+def _sanitize_data_for_editor(df: pd.DataFrame) -> pd.DataFrame:
+    """data_editor(Text/Selectbox/Checkbox)와 dtype 호환."""
+    out = df.copy()
+    for c in ["NO.", "날짜", "점수", "비고"]:
+        if c in out.columns:
+            out[c] = out[c].map(_display_cell_str)
+    for c in ["선후공", "결과", "세트", "내 덱", "상대 덱", "특정 카드", "승패 요인", "아키타입"]:
+        if c in out.columns:
+            out[c] = out[c].map(_display_cell_str)
+    for c in ["브릭", "실수"]:
+        if c in out.columns:
+            out[c] = pd.to_numeric(out[c], errors="coerce").fillna(0).astype(bool)
+    return out
+
+
+def _ensure_selectbox_values(df: pd.DataFrame, col: str, options: list[str]) -> None:
+    """셀렉트 옵션에 없는 값은 첫 옵션으로 맞춤 (빈 문자열·NaN 포함)."""
+    if col not in df.columns or not options:
+        return
+    default = options[0]
+
+    def _norm(v):
+        if v is None or (isinstance(v, float) and pd.isna(v)):
+            return default
+        s = str(v).strip()
+        if s == "":
+            return default
+        return s if s in options else default
+
+    df[col] = df[col].map(_norm)
+
+
 def _persist_record_csv(guide: pd.DataFrame, records: pd.DataFrame) -> None:
     merged = pd.concat([guide, records], ignore_index=True)
     st.session_state.df = merged
@@ -172,6 +219,21 @@ with tab1:
     # 가이드가 위에 있어 같은 실행에서 편집 중인 표를 쓸 수 없음 → 직전 실행의 편집본 사용
     stats_src = st.session_state.get("last_edited_record_data", data_df)
     _sync_guide_stats_row(guide_df, stats_src)
+
+    guide_df = _sanitize_guide_for_editor(guide_df)
+    data_df = _sanitize_data_for_editor(data_df)
+    opt = st.session_state.options
+    for col, choices in [
+        ("선후공", ["선", "후"]),
+        ("결과", ["승", "패"]),
+        ("세트", ["OO", "OXO", "XOO", "XX", "XOX", "OXX"]),
+        ("내 덱", opt["내 덱"]),
+        ("상대 덱", opt["상대 덱"]),
+        ("특정 카드", opt["특정 카드"]),
+        ("승패 요인", opt["승패 요인"]),
+        ("아키타입", opt["아키타입"]),
+    ]:
+        _ensure_selectbox_values(data_df, col, choices)
 
     st.subheader("📋 가이드 및 통계")
     # 가이드 행은 체크박스가 아닌 일반 텍스트로 표시되도록 설정

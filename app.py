@@ -10,36 +10,12 @@ META_FILE = 'metadata_config.json'
 
 st.set_page_config(page_title="YGO Rating System", layout="wide")
 
-# 🔥 [UI 최적화] 모든 입력값 및 텍스트 중앙 정렬 + 불필요한 아이콘 제거
+# 🔥 [UI 최적화] 줄 3개/연필 숨기기 CSS
 st.markdown("""
     <style>
-    /* 1. 표 왼쪽의 행 번호/핸들 숨기기 */
     [data-testid="stTableIdxColumn"] { display: none; }
-    
-    /* 2. 셀 수정 시 나타나는 연필 아이콘 숨기기 */
     .st-ae svg { display: none !important; }
-    
-    /* 3. 데이터 에디터 하단 툴바 숨기기 */
     [data-testid="stDataEditorToolbar"] { display: none; }
-    
-    /* 4. [핵심] 표 안의 모든 데이터 값(텍스트) 중앙 정렬 */
-    div[data-testid="stDataFrame"] div[role="gridcell"] {
-        justify-content: center !important;
-        text-align: center !important;
-    }
-    
-    /* 드롭다운이나 텍스트 입력창 내부의 정렬도 강제 고정 */
-    div[data-testid="stDataFrame"] div[role="gridcell"] input,
-    div[data-testid="stDataFrame"] div[role="gridcell"] div {
-        text-align: center !important;
-        justify-content: center !important;
-    }
-
-    /* 5. 표 헤더(컬럼명) 중앙 정렬 */
-    div[data-testid="stDataFrame"] div[role="columnheader"] > div {
-        justify-content: center !important;
-        text-align: center !important;
-    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -125,29 +101,29 @@ if page == "📊 Rating (전적 기록/분석)":
         st.session_state.df = pd.concat([df, new_row], ignore_index=True)
         st.rerun()
 
-    # 데이터 에디터
- edited_df = st.data_editor(
-    st.session_state.df, 
-    use_container_width=True, 
-    num_rows="dynamic",
-    hide_index=True,
-    key="rating_editor_v5",
-    column_config={
-        "NO.": st.column_config.NumberColumn("No.", disabled=True, width="small", alignment="center"),
-        "날짜": st.column_config.TextColumn("날짜", width="medium", alignment="center"),
-        "선후공": st.column_config.SelectboxColumn("선/후", options=["선", "후"], width="small", alignment="center"),
-        "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width="small", alignment="center"),
-        "매치 상세": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width="small", alignment="center"),
-        "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata["my_decks"], alignment="center"),
-        "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata["opp_decks"], alignment="center"),
-        "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata["archetypes"], alignment="center"),
-        "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata["target_cards"], alignment="center"),
-        "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.metadata["win_loss_reasons"], alignment="center"),
-        "브릭": st.column_config.CheckboxColumn("브릭", width="small"), # 체크박스는 기본 중앙
-        "실수": st.column_config.CheckboxColumn("실수", width="small"),
-        "비고": st.column_config.TextColumn("비고", width="large", alignment="center")
-    }
-)
+    # ✨ [핵심] 들여쓰기 수정 및 모든 컬럼 중앙 정렬(alignment="center") 적용
+    edited_df = st.data_editor(
+        st.session_state.df, 
+        use_container_width=True, 
+        num_rows="dynamic",
+        hide_index=True,
+        key="rating_editor_vFinal",
+        column_config={
+            "NO.": st.column_config.NumberColumn("No.", disabled=True, width="small", alignment="center"),
+            "날짜": st.column_config.TextColumn("날짜", width="medium", alignment="center"),
+            "선후공": st.column_config.SelectboxColumn("선/후", options=["선", "후"], width="small", alignment="center"),
+            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width="small", alignment="center"),
+            "매치 상세": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width="small", alignment="center"),
+            "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata["my_decks"], alignment="center"),
+            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata["opp_decks"], alignment="center"),
+            "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata["archetypes"], alignment="center"),
+            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata["target_cards"], alignment="center"),
+            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.metadata["win_loss_reasons"], alignment="center"),
+            "브릭": st.column_config.CheckboxColumn("브릭", width="small"),
+            "실수": st.column_config.CheckboxColumn("실수", width="small"),
+            "비고": st.column_config.TextColumn("비고", width="large", alignment="center")
+        }
+    )
 
     if st.button("💾 Rating 데이터 저장 및 업데이트", type="primary"):
         st.session_state.df = edited_df

@@ -18,22 +18,12 @@ def load_data():
         return df
     else:
         columns = ["NO.", "날짜", "선후공", "결과", "세트 전적", "점수", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
-        # 요청하신 서브 라벨 완벽 복구
+        # 요청하신 영어 서브 라벨 구성
         sub_label_row = {
-            "NO.": "경기", 
-            "날짜": "Date", 
-            "선후공": "40.46%", 
-            "결과": "62.43%", 
-            "세트 전적": "Result", 
-            "점수": "Rate", 
-            "내 덱": "Use.deck", 
-            "상대 덱": "Opp. deck", 
-            "아키타입": "Plus Arch.", 
-            "승패 요인": "W/L Factor",
-            "특정 카드": "Certain Card", 
-            "브릭": "10", 
-            "실수": "30", 
-            "비고": "Detail"
+            "NO.": "경기", "날짜": "Date", "선후공": "40.46%", "결과": "62.43%", 
+            "세트 전적": "Result", "점수": "Rate", "내 덱": "Use.deck", 
+            "상대 덱": "Opp. deck", "아키타입": "Plus Arch.", "승패 요인": "W/L Factor",
+            "특정 카드": "Certain Card", "브릭": "10", "실수": "30", "비고": "Detail"
         }
         return pd.DataFrame([sub_label_row], columns=columns)
 
@@ -60,7 +50,7 @@ if 'options' not in st.session_state:
 tab1, tab2 = st.tabs(["📊 Record", "⚙️ Setting"])
 
 # ---------------------------------------------------------
-# TAB 1: Record (프래그먼트 최적화 및 라벨 복구)
+# TAB 1: Record (실시간 점수 및 라벨 반영)
 # ---------------------------------------------------------
 with tab1:
     st.title("📊 Rating Dashboard")
@@ -95,22 +85,35 @@ with tab1:
             }
         )
 
-        # 통계 자동 업데이트 로직
+        # 통계 및 마지막 데이터 추출 로직
         total_games = len(edited_data)
         if total_games > 0:
-            # 1. 승률 및 선공 비율
+            # 1. 승률 및 선공 비율 계산
             win_rate = (edited_data["결과"] == "승").sum() / total_games * 100
             first_rate = (edited_data["선후공"] == "선").sum() / total_games * 100
             
-            # 2. 마지막 입력된 경기 번호 가져오기 (NO. 열의 마지막 값)
-            last_no = str(edited_data["NO."].iloc[-1]) if not edited_data["NO."].empty else "0"
+            # 2. 마지막 행 데이터 추출 (NO. 및 점수)
+            last_row = edited_data.iloc[-1]
+            last_no = str(last_row["NO."]) if pd.notna(last_row["NO."]) else "0"
+            last_score = str(last_row["점수"]) if pd.notna(last_row["점수"]) else "Rate"
             
-            # 가이드 행 업데이트
+            # 3. 가이드 행 실시간 업데이트
             edited_guide.at[0, "결과"] = f"{win_rate:.2f}%"
             edited_guide.at[0, "선후공"] = f"{first_rate:.2f}%"
             edited_guide.at[0, "브릭"] = str(edited_data["브릭"].sum())
             edited_guide.at[0, "실수"] = str(edited_data["실수"].sum())
-            edited_guide.at[0, "NO."] = last_no # 마지막 경기 숫자 표시
+            edited_guide.at[0, "NO."] = last_no      # 마지막 경기 번호
+            edited_guide.at[0, "점수"] = last_score   # 마지막 점수
+            
+            # 나머지 영어 라벨 유지 (수동 수정 방지용 재확인)
+            edited_guide.at[0, "날짜"] = "Date"
+            edited_guide.at[0, "세트 전적"] = "Result"
+            edited_guide.at[0, "내 덱"] = "Use.deck"
+            edited_guide.at[0, "상대 덱"] = "Opp. deck"
+            edited_guide.at[0, "아키타입"] = "Plus Arch."
+            edited_guide.at[0, "승패 요인"] = "W/L Factor"
+            edited_guide.at[0, "특정 카드"] = "Certain Card"
+            edited_guide.at[0, "비고"] = "Detail"
 
         # 세션 업데이트 및 자동 저장
         new_df = pd.concat([edited_guide, edited_data], ignore_index=True)
@@ -121,7 +124,7 @@ with tab1:
     render_record_table()
 
 # ---------------------------------------------------------
-# TAB 2: Setting
+# TAB 2: Setting (이전과 동일)
 # ---------------------------------------------------------
 with tab2:
     st.title("⚙️ Setting")
@@ -130,20 +133,4 @@ with tab2:
     opp_decks_raw = col2.text_area("상대 덱", "\n".join(st.session_state.options["상대 덱"]), height=200)
     cards_raw = col3.text_area("특정 카드", "\n".join(st.session_state.options["특정 카드"]), height=200)
     
-    col4, col5 = st.columns(2)
-    factors_raw = col4.text_area("승패 요인", "\n".join(st.session_state.options["승패 요인"]), height=150)
-    arch_raw = col5.text_area("아키타입", "\n".join(st.session_state.options["아키타입"]), height=150)
-
-    new_options = {
-        "내 덱": [x.strip() for x in my_decks_raw.split("\n") if x.strip()],
-        "상대 덱": [x.strip() for x in opp_decks_raw.split("\n") if x.strip()],
-        "특정 카드": [x.strip() for x in cards_raw.split("\n") if x.strip()],
-        "승패 요인": [x.strip() for x in factors_raw.split("\n") if x.strip()],
-        "아키타입": [x.strip() for x in arch_raw.split("\n") if x.strip()],
-        "table_height": 20000
-    }
-
-    if new_options != st.session_state.options:
-        st.session_state.options = new_options
-        with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
-            json.dump(new_options, f, ensure_ascii=False, indent=4)
+    col4, col5

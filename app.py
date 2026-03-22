@@ -14,15 +14,6 @@ st.set_page_config(page_title="YGO Rating Analysis", layout="wide")
 st.markdown("""
     <style>
     [data-testid="stDataFrameResizable"] div[role="grid"] div[role="row"] div { text-align: center !important; font-size: 13px !important; }
-    
-    /* Record 헤더 색상 커스텀 */
-    div[data-testid="stDataFrameResizable"] th:nth-child(1), div[data-testid="stDataFrameResizable"] th:nth-child(2),
-    div[data-testid="stDataFrameResizable"] th:nth-child(3), div[data-testid="stDataFrameResizable"] th:nth-child(4),
-    div[data-testid="stDataFrameResizable"] th:nth-child(5) { background-color: #a2d5c6 !important; color: #31333F !important; }
-    div[data-testid="stDataFrameResizable"] th:nth-child(6), div[data-testid="stDataFrameResizable"] th:nth-child(7),
-    div[data-testid="stDataFrameResizable"] th:nth-child(8), div[data-testid="stDataFrameResizable"] th:nth-child(9),
-    div[data-testid="stDataFrameResizable"] th:nth-child(10), div[data-testid="stDataFrameResizable"] th:nth-child(11) { background-color: #f9cb9c !important; }
-    div[data-testid="stDataFrameResizable"] th:nth-child(12), div[data-testid="stDataFrameResizable"] th:nth-child(13) { background-color: #ffe599 !important; }
 
     /* 분석 페이지 테이블 스타일 */
     .styled-table { width: 100%; font-size: 12px; border-collapse: collapse; margin-bottom: 20px; table-layout: fixed; border: 1px solid #dee2e6; }

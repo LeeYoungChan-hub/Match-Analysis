@@ -159,30 +159,42 @@ def create_4_row_table(target_df):
     ]
     return pd.DataFrame(data)
 # ---------------------------------------------------------
-# [페이지 3] Rating (설정) - 신규 추가
+# [페이지 3] Rating (설정) - 수정 버전
 # ---------------------------------------------------------
-elif page:  # ⚙️ Rating (설정)
+elif page == "⚙️ Rating (설정)":
     st.title("⚙️ Rating 설정")
+    
+    # 세션 상태에 metadata가 없는 경우를 대비한 안전장치
+    if 'metadata' not in st.session_state:
+        st.session_state.metadata = load_metadata()
+        
     meta = st.session_state.metadata
     
     col1, col2 = st.columns(2)
     with col1:
-        new_my = st.text_area("내 덱 (쉼표 구분)", ", ".join(meta["my_decks"]))
-        new_opp = st.text_area("상대 덱 (쉼표 구분)", ", ".join(meta["opp_decks"]))
+        # 기존 데이터를 불러와 텍스트 영역에 표시
+        new_my = st.text_area("내 덱 (쉼표 구분)", ", ".join(meta.get("my_decks", [])))
+        new_opp = st.text_area("상대 덱 (쉼표 구분)", ", ".join(meta.get("opp_decks", [])))
     with col2:
-        new_arche = st.text_area("아키타입", ", ".join(meta["archetypes"]))
-        new_reasons = st.text_area("승패 요인", ", ".join(meta["win_loss_reasons"]))
-        new_cards = st.text_area("특정 카드", ", ".join(meta["target_cards"]))
+        new_arche = st.text_area("아키타입 (쉼표 구분)", ", ".join(meta.get("archetypes", [])))
+        new_reasons = st.text_area("승패 요인 (쉼표 구분)", ", ".join(meta.get("win_loss_reasons", [])))
+        new_cards = st.text_area("특정 카드 (쉼표 구분)", ", ".join(meta.get("target_cards", [])))
         
     if st.button("✅ 설정 저장", type="primary"):
-        st.session_state.metadata = {
+        # 입력받은 텍스트를 리스트로 변환하여 세션 상태 업데이트
+        updated_meta = {
             "my_decks": [x.strip() for x in new_my.split(",") if x.strip()],
             "opp_decks": [x.strip() for x in new_opp.split(",") if x.strip()],
             "archetypes": [x.strip() for x in new_arche.split(",") if x.strip()],
             "win_loss_reasons": [x.strip() for x in new_reasons.split(",") if x.strip()],
             "target_cards": [x.strip() for x in new_cards.split(",") if x.strip()]
         }
+        
+        st.session_state.metadata = updated_meta
+        
+        # JSON 파일에 물리적으로 저장
         with open(META_FILE, 'w', encoding='utf-8') as f:
-            json.dump(st.session_state.metadata, f, ensure_ascii=False, indent=4)
-        st.success("설정이 저장되었습니다!")
+            json.dump(updated_meta, f, ensure_ascii=False, indent=4)
+            
+        st.success("설정이 저장되었습니다! 이제 기록 페이지의 드롭다운에 반영됩니다.")
         st.rerun()

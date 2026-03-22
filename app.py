@@ -1,9 +1,8 @@
 import streamlit as st
 import pandas as pd
-import os
 
 # 1. 페이지 설정
-st.set_page_config(page_title="Rating", layout="wide")
+st.set_page_config(page_title="Rating Dashboard", layout="wide")
 
 # 2. 데이터 및 설정값 초기화
 FILENAME = "2026.03 레이팅 - Record.csv"
@@ -11,13 +10,15 @@ FILENAME = "2026.03 레이팅 - Record.csv"
 if 'df' not in st.session_state:
     try:
         st.session_state.df = pd.read_csv(FILENAME)
+        # 체크박스 호환을 위한 데이터 변환
         st.session_state.df['브릭'] = st.session_state.df['브릭'].map({'TRUE': True, 'FALSE': False, True: True, False: False}).fillna(False)
         st.session_state.df['실수'] = st.session_state.df['실수'].map({'TRUE': True, 'FALSE': False, True: True, False: False}).fillna(False)
     except:
         columns = ["NO.", "날짜", "선후공", "결과", "세트 전적", "점수", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
+        # 초기 가이드 행 (0번 인덱스)
         sub_label_row = {
-            "NO.": "경기", "날짜": "Date", "선후공": "0.00%", "결과": "0.00%", 
-            "세트 전적": "Result", "점수": "Rate", "내 덱": "Use.deck", 
+            "NO.": "0판", "날짜": "Date", "선후공": "0.00%", "결과": "0.00%", 
+            "세트 전적": "Result", "점수": "0", "내 덱": "Use.deck", 
             "상대 덱": "Opp. deck", "아키타입": "Plus Arch.", "승패 요인": "W/L Factor",
             "특정 카드": "Certain Card", "브릭": "0", "실수": "0", "비고": "Detail"
         }
@@ -28,10 +29,11 @@ if 'options' not in st.session_state:
         "내 덱": ["KT", "SwoS", "Synchron"],
         "상대 덱": ["Mitsu", "Ennea", "DD", "Red Dra", "Branded", "Maliss"],
         "특정 카드": ["TT Talent", "Droll", "Nibiru"],
-        "승패 요인": ["자심 실력", "상대 패", "특정 카드", "운"],
+        "승패 요인": ["자신 실력", "상대 패", "특정 카드", "운"],
         "아키타입": ["60", "Arch"]
     }
 
+# 3. 상단 탭 구성
 tab1, tab2 = st.tabs(["📊 Record", "⚙️ Setting"])
 
 # ---------------------------------------------------------
@@ -40,11 +42,19 @@ tab1, tab2 = st.tabs(["📊 Record", "⚙️ Setting"])
 with tab1:
     st.title("📊 Rating Dashboard")
 
-    # 데이터 분리
+    # 데이터 분리 (첫 번째 행은 가이드/통계용)
     guide_df = st.session_state.df.iloc[[0]].copy()
     data_df = st.session_state.df.iloc[1:].copy()
 
-    # 실제 데이터 에디터 (계산을 위해 먼저 배치)
+    # 가이드 행 에디터
+    st.subheader("📋 가이드 및 통계 (저장 시 자동 업데이트)")
+    edited_guide = st.data_editor(
+        guide_df, 
+        use_container_width=True, 
+        key="guide_editor"
+    )
+
+    # 실제 데이터 에디터
     st.subheader("📝 경기 기록")
     edited_data = st.data_editor(
         data_df,
@@ -65,39 +75,41 @@ with tab1:
         }
     )
 
-    # 통계 자동 계산 로직 (에디터 변경 시 즉시 계산)
-    total_games = len(edited_data)
-    if total_games > 0:
-        # 1. 승률 및 선공 비율
-        win_rate = (len(edited_data[edited_data["결과"] == "승"]) / total_games) * 100
-        first_rate = (len(edited_data[edited_data["선후공"] == "선"]) / total_games) * 100
-        
-        # 2. 마지막 행 값 추출 (요청 사항: NO.와 점수)
-        last_row = edited_data.iloc[-1]
-        last_no = str(last_row["NO."]) if pd.notna(last_row["NO."]) else "경기"
-        last_score = str(last_row["점수"]) if pd.notna(last_row["점수"]) else "Rate"
-        
-        # 가이드 행 업데이트
-        guide_df.at[0, "결과"] = f"{win_rate:.2f}%"
-        guide_df.at[0, "선후공"] = f"{first_rate:.2f}%"
-        guide_df.at[0, "브릭"] = str(edited_data["브릭"].sum())
-        guide_df.at[0, "실수"] = str(edited_data["실수"].sum())
-        guide_df.at[0, "NO."] = last_no      # 마지막 경기 숫자
-        guide_df.at[0, "점수"] = last_score   # 마지막 점수 숫자
-
-    # 가이드 행 에디터 (계산된 결과 반영)
-    st.subheader("📋 가이드 및 통계")
-    edited_guide = st.data_editor(
-        guide_df, 
-        use_container_width=True, 
-        key="guide_editor"
-    )
-
-    # 데이터 저장 버튼
+    # 데이터 저장 버튼 및 자동 계산 로직
     if st.button("💾 데이터 저장"):
+        total_games = len(edited_data)
+        
+        if total_games > 0:
+            # 1. 승률 계산
+            win_count = len(edited_data[edited_data["결과"] == "승"])
+            win_rate = (win_count / total_games) * 100
+            
+            # 2. 선공 비율 계산
+            first_count = len(edited_data[edited_data["선후공"] == "선"])
+            first_rate = (first_count / total_games) * 100
+            
+            # 3. 브릭/실수 합계 계산
+            brick_sum = edited_data["브릭"].sum()
+            mistake_sum = edited_data["실수"].sum()
+
+            # 4. 마지막 경기 정보 추출 (요청 사항)
+            last_no = edited_data.iloc[-1]["NO."]
+            last_score = edited_data.iloc[-1]["점수"]
+            
+            # 가이드 행 업데이트
+            edited_guide.at[0, "결과"] = f"{win_rate:.2f}%"
+            edited_guide.at[0, "선후공"] = f"{first_rate:.2f}%"
+            edited_guide.at[0, "브릭"] = str(brick_sum)
+            edited_guide.at[0, "실수"] = str(mistake_sum)
+            edited_guide.at[0, "NO."] = f"{last_no} ({total_games}판)" # 마지막 번호 표시
+            edited_guide.at[0, "점수"] = str(last_score) # 마지막 점수 표시
+
+        # 데이터 합치기
         st.session_state.df = pd.concat([edited_guide, edited_data], ignore_index=True)
+        
+        # 파일로 실제 저장
         st.session_state.df.to_csv(FILENAME, index=False, encoding='utf-8-sig')
-        st.success("데이터가 파일에 저장되었습니다!")
+        st.success("데이터가 파일에 저장되고 통계가 업데이트되었습니다!")
         st.rerun()
 
     csv = st.session_state.df.to_csv(index=False).encode('utf-8-sig')

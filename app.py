@@ -107,18 +107,18 @@ if page == "📊 Record":
     edited = st.data_editor(
         st.session_state.df, use_container_width=True, num_rows="dynamic", hide_index=True, key="editor_vfinal",
         column_config={
-            "NO.": st.column_config.TextColumn("NO.", width=40),
+            "NO.": st.column_config.TextColumn("NO.", width=50),
             "날짜": st.column_config.TextColumn("날짜", width=60),
-            "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], width=60),
+            "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], width=70),
             "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width=60),
-            "세트": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=80),
+            "세트": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=60),
             "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata["my_decks"], width=100),
             "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata["opp_decks"], width=100),
             "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata["archetypes"], width=100),
             "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.metadata["win_loss_reasons"], width=100),
             "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata["target_cards"], width=100),
-            "브릭": st.column_config.CheckboxColumn("브릭", width=50),
-            "실수": st.column_config.CheckboxColumn("실수", width=50),
+            "브릭": st.column_config.CheckboxColumn("브릭", width=60),
+            "실수": st.column_config.CheckboxColumn("실수", width=60),
             "비고": st.column_config.TextColumn("비고", width=350)
         }
     )

@@ -430,7 +430,55 @@ elif page == "📈 Analysis":
         )
 
         st.markdown('</div>', unsafe_allow_html=True)
+def create_matchup_table(df):
 
+    df = df[df['결과'].isin(['승','패'])]
+
+    total_games = len(df)
+
+    rows = []
+
+    for opp in sorted(df['상대 덱'].unique()):
+
+        sub = df[df['상대 덱'] == opp]
+
+        total = len(sub)
+        w = len(sub[sub['결과']=='승'])
+        l = len(sub[sub['결과']=='패'])
+
+        win_rate = (w/total*100) if total else 0
+
+        first = sub[sub['선후공']=='선']
+        second = sub[sub['선후공']=='후']
+
+        first_w = len(first[first['결과']=='승'])
+        second_w = len(second[second['결과']=='승'])
+
+        first_rate = (first_w/len(first)*100) if len(first)>0 else 0
+        second_rate = (second_w/len(second)*100) if len(second)>0 else 0
+
+        share = (total/total_games*100) if total_games else 0
+
+        arch = sub['아키타입'].iloc[0] if len(sub)>0 else ""
+
+        rows.append({
+            "Matchup": opp,
+            "Total": total,
+            "W": w,
+            "L": l,
+            "W%": round(win_rate,2),
+            "1stW%": round(first_rate,2),
+            "2ndW%": round(second_rate,2),
+            "Share": round(share,1),
+            "Arch": arch
+        })
+
+    df_out = pd.DataFrame(rows)
+
+    if not df_out.empty:
+        df_out = df_out.sort_values("W%", ascending=False)
+
+    return df_out
 # ---------------- Setting ----------------
 
 else:

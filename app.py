@@ -116,7 +116,7 @@ if 'metadata' not in st.session_state:
 if 'df' not in st.session_state:
     st.session_state.df = load_records()
 
-page = st.sidebar.radio("메뉴", ["📊 기록", "📈 분석", "⚙️ 설정"])
+page = st.sidebar.radio("메뉴", ["📊 Record", "📈 Analysis", "⚙️ Setting"])
 
 if page == "📊 기록":
     st.title("📊 전적 기록")
@@ -124,7 +124,7 @@ if page == "📊 기록":
         meta = st.session_state.metadata
         new_row = pd.DataFrame([{
             "NO.": str(len(st.session_state.df) + 1), "날짜": pd.Timestamp.now().strftime("%m.%d"),
-            "선후공": "선", "결과": "승", "세트 전적": "OO",
+            "선후공": "선", "결과": "승", "세트": "OO",
             "내 덱": meta["my_decks"][0], "상대 덱": meta["opp_decks"][0],
             "아키타입": meta["archetypes"][0], "승패 요인": meta["win_loss_reasons"][0],
             "특정 카드": meta["target_cards"][0], "브릭": False, "실수": False, "비고": ""
@@ -140,7 +140,7 @@ if page == "📊 기록":
             "날짜": st.column_config.TextColumn("날짜", width=65),
             "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], width=65),
             "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width=65),
-            "세트 전적": st.column_config.SelectboxColumn("세트 전적", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=85),
+            "세트 전적": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=85),
             "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata.get("my_decks", []), width=100),
             "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata.get("opp_decks", []), width=100),
             "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata.get("archetypes", []), width=90),

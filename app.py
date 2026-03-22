@@ -126,8 +126,7 @@ elif page == "📈 분석":
         # (통계 테이블 렌더링 로직 생략 없이 그대로 유지...)
         st.markdown('</div>', unsafe_allow_html=True)
 
-else:
-    st.title("⚙️ Rating 설정")
+else: st.title("⚙️ Rating 설정")
     meta = st.session_state.metadata
     c1, c2 = st.columns(2)
     with c1: new_my = st.text_area("내 덱 (쉼표 구분)", ", ".join(meta.get("my_decks", [])))

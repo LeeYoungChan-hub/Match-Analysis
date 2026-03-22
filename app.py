@@ -2,28 +2,29 @@ import streamlit as st
 import pandas as pd
 import os
 import json
-import numpy as np
 
-# --- 1. 기본 설정 ---
+# --- 1. 기본 설정 및 파일 경로 ---
 RECORD_FILE = 'yugioh_records.csv'
 META_FILE = 'metadata_config.json'
 
 st.set_page_config(page_title="YGO Rating Analysis", layout="wide")
 
-# --- 2. [디자인] 분석 페이지 1/3 너비 유지 ---
-st.markdown(f"""
+# --- 2. [디자인] 인덱스 열 강제 숨김 CSS ---
+st.markdown("""
     <style>
-    [data-testid="stTableIdxColumn"] {{ display: none; }}
-    th {{ display: none; }} 
-    .analysis-wrapper {{ width: 33%; margin-left: 0; }}
-    .styled-table {{ width: 100%; font-size: 14px; border-collapse: collapse; margin-bottom: 30px; table-layout: fixed; }}
-    .styled-table td {{ text-align: center !important; border: 1px solid #dee2e6 !important; padding: 10px !important; }}
-    .styled-table tr:nth-child(odd) {{ background-color: #f0f2f6 !important; font-weight: bold; color: #31333F; }}
-    div[data-testid="stSelectbox"] {{ width: 100% !important; }}
+    /* 데이터 에디터 내부의 인덱스 열(맨 왼쪽)을 강제로 숨깁니다 */
+    [data-testid="stTableIdxColumn"] { display: none !important; }
+    th.col_heading.level0.index_name { display: none !important; }
+    
+    .analysis-wrapper { width: 33%; margin-left: 0; }
+    .styled-table { width: 100%; font-size: 14px; border-collapse: collapse; margin-bottom: 30px; table-layout: fixed; }
+    .styled-table td { text-align: center !important; border: 1px solid #dee2e6 !important; padding: 10px !important; }
+    .styled-table tr:nth-child(odd) { background-color: #f0f2f6 !important; font-weight: bold; color: #31333F; }
+    div[data-testid="stSelectbox"] { width: 100% !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. 데이터 로드/저장 로직 (강력한 타입 세척) ---
+# --- 3. 데이터 처리 로직 ---
 def load_metadata():
     default_meta = {
         "my_decks": ["KT", "Ennea", "Maliss", "Tenpai"],
@@ -42,25 +43,18 @@ def load_records():
     cols = ["NO.", "날짜", "선후공", "결과", "세트 전적", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
     if os.path.exists(RECORD_FILE):
         try:
-            # 1. 모든 데이터를 문자로 읽고 빈칸 제거
             df = pd.read_csv(RECORD_FILE, dtype=str).fillna("")
-            # 2. 필수 컬럼 확인
-            for col in cols:
-                if col not in df.columns: df[col] = ""
-            # 3. NO. 컬럼 강제 숫자 변환 및 순서 재정렬
+            # NO. 컬럼을 1부터 시작하는 정수로 강제 고정
             df["NO."] = range(1, len(df) + 1)
-            # 4. 체크박스(브릭, 실수) 논리값 변환
+            # 체크박스 타입 보정
             for col in ["브릭", "실수"]:
-                df[col] = df[col].apply(lambda x: True if str(x).lower() in ['true', '1', '1.0'] else False)
-            # 5. 나머지 텍스트화
-            str_cols = [c for c in cols if c not in ["브릭", "실수", "NO."]]
-            for col in str_cols: df[col] = df[col].astype(str)
+                df[col] = df[col].apply(lambda x: True if str(x).lower() in ['true', '1'] else False)
             return df[cols]
         except: pass
     return pd.DataFrame(columns=cols)
 
 def save_data(df):
-    # 저장 직전 넘버링 최종 확인
+    # 저장 전 NO. 재정렬
     df["NO."] = range(1, len(df) + 1)
     df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
     st.session_state.df = df
@@ -76,33 +70,31 @@ page = st.sidebar.radio("메뉴", ["📊 기록", "📈 분석", "⚙️ 설정"
 if page == "📊 기록":
     st.title("📊 전적 기록")
     
-    # [수정] 새 경기 추가 버튼 클릭 시 NO.를 정확히 계산해서 삽입
     if st.button("➕ 새로운 경기 추가"):
+        # 새 행을 만들 때 NO.를 미리 계산해서 타입 충돌 방지
         next_no = len(st.session_state.df) + 1
         new_row = pd.DataFrame([{
-            "NO.": next_no, 
-            "날짜": pd.Timestamp.now().strftime("%m.%d"), 
-            "선후공": "선", "결과": "승", "세트 전적": "OO", 
-            "내 덱": st.session_state.metadata["my_decks"][0], 
+            "NO.": next_no,
+            "날짜": pd.Timestamp.now().strftime("%m.%d"),
+            "선후공": "선", "결과": "승", "세트 전적": "OO",
+            "내 덱": st.session_state.metadata["my_decks"][0],
             "상대 덱": st.session_state.metadata["opp_decks"][0],
             "아키타입": st.session_state.metadata["archetypes"][0],
             "승패 요인": st.session_state.metadata["win_loss_reasons"][0],
             "특정 카드": st.session_state.metadata["target_cards"][0],
             "브릭": False, "실수": False, "비고": ""
         }])
-        # 데이터프레임 합치기 및 타입 보정
         st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
-        st.session_state.df["NO."] = st.session_state.df["NO."].astype(int)
         save_data(st.session_state.df)
         st.rerun()
 
-    # 에디터 호출
+    # 🔥 hide_index=True를 통해 맨 왼쪽 인덱스 열(0,1,2...) 제거
     edited_df = st.data_editor(
-        st.session_state.df, 
-        use_container_width=True, 
-        num_rows="dynamic", 
-        hide_index=True,
-        key="rating_editor",
+        st.session_state.df,
+        use_container_width=True,
+        num_rows="dynamic",
+        hide_index=True,  # 여기서 인덱스 숨김
+        key="rating_editor_v2",
         column_config={
             "NO.": st.column_config.NumberColumn("NO.", disabled=True, format="%d"),
             "날짜": st.column_config.TextColumn("날짜"),
@@ -115,10 +107,18 @@ if page == "📊 기록":
         }
     )
 
-    # 변경사항 자동 저장 및 넘버링 갱신
     if not edited_df.equals(st.session_state.df):
         save_data(edited_df)
         st.rerun()
+
+elif page == "📈 분석":
+    st.title("📈 Rating Analysis")
+    df = load_records()
+    if not df.empty:
+        st.markdown('<div class="analysis-wrapper">', unsafe_allow_html=True)
+        st.subheader("1. Overall Stats")
+        # 분석 테이블 로직 (동일)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 elif page == "📈 분석":
     st.title("📈 Rating Analysis")

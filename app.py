@@ -1,80 +1,87 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 
-# 1. 페이지 설정
+# 페이지 설정
 st.set_page_config(page_title="Rating", layout="wide")
 
-st.title("🗂️ Rating 경기 기록부")
+# CSS를 활용해 스크린샷의 카드 스타일 재현
+st.markdown("""
+    <style>
+    .metric-card {
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 10px;
+        border-left: 5px solid #636EFA;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    .metric-label { font-size: 14px; color: #666; }
+    .metric-value { font-size: 24px; font-weight: bold; color: #333; }
+    </style>
+    """, unsafe_allow_html=True)
 
-# 2. 파일 로드 로직
-# GitHub에 처음 올릴 때 파일이 없으면 빈 양식을 만듭니다.
+st.title("📊 Rating Dashboard")
 
-def load_data():
-    try:
-        df = pd.read_csv(FILENAME)
-    except FileNotFoundError:
-        # 파일이 없을 경우 업로드하신 파일의 컬럼 구조 그대로 생성
-        columns = [
-            "NO.", "날짜", "선후공", "결과", "세트 전적", "점수", 
-            "내 덱", "상대 덱", "아키타입", "승패 요인", 
-            "특정 카드", "브릭", "실수", "비고", "Deatil"
-        ]
-        df = pd.DataFrame(columns=columns)
-        # 헤더 아래의 보조 설명 행(영어) 추가
-        description_row = {
-            "NO.": "경기", "날짜": "Date", "선후공": "40.46%", "결과": "62.43%", 
-            "세트 전적": "Result", "점수": "Rate", "내 덱": "Use.deck", 
-            "상대 덱": "Opp. deck", "아키타입": "Plus Arch.", "승패 요인": "W/L Factor",
-            "특정 카드": "Certain Card", "브릭": "10", "실수": "30"
-        }
-        df = pd.concat([df, pd.DataFrame([description_row])], ignore_index=True)
-    return df
+# 1. 상단 요약 섹션 (스크린샷의 4칸 구성)
+col1, col2, col3, col4 = st.columns(4)
 
+with col1:
+    st.markdown('<div class="metric-card"><p class="metric-label">전체 승률</p><p class="metric-value">62.4%</p></div>', unsafe_allow_html=True)
+with col2:
+    st.markdown('<div class="metric-card"><p class="metric-label">선공 승률</p><p class="metric-value">40.5%</p></div>', unsafe_allow_html=True)
+with col3:
+    st.markdown('<div class="metric-card"><p class="metric-label">후공 승률</p><p class="metric-value">71.2%</p></div>', unsafe_allow_html=True)
+with col4:
+    st.markdown('<div class="metric-card"><p class="metric-label">총 경기 수</p><p class="metric-value">124회</p></div>', unsafe_allow_html=True)
+
+st.write("") # 간격 조절
+st.divider()
+
+# 2. 데이터 관리 섹션 (스크린샷 하단의 표 구조)
+st.subheader("📝 경기 기록 데이터")
+
+# 초기 데이터 (스크린샷의 컬럼 구조 그대로)
 if 'df' not in st.session_state:
-    st.session_state.df = load_data()
-
-# 3. 데이터 입력 UI (새 경기 추가)
-with st.expander("➕ 새 경기 기록 추가"):
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        new_no = st.text_input("NO.", value=str(len(st.session_state.df)))
-        new_date = st.text_input("날짜", placeholder="MM.DD")
-    with col2:
-        new_turn = st.selectbox("선후공", ["선", "후"])
-        new_res = st.selectbox("결과", ["승", "패"])
-    with col3:
-        new_set = st.text_input("세트 전적", placeholder="OO / XOO")
-        new_my = st.text_input("내 덱", value="KT")
-    with col4:
-        new_opp = st.text_input("상대 덱")
-        new_mistake = st.checkbox("실수 여부")
-
-    if st.button("기록 저장"):
-        new_data = {
-            "NO.": new_no, "날짜": new_date, "선후공": new_turn, "결과": new_res,
-            "세트 전적": new_set, "내 덱": new_my, "상대 덱": new_opp, 
-            "실수": "TRUE" if new_mistake else "FALSE"
+    columns = [
+        "NO.", "날짜", "선후공", "결과", "세트 전적", "점수", 
+        "내 덱", "상대 덱", "아키타입", "승패 요인", 
+        "특정 카드", "브릭", "실수", "비고"
+    ]
+    # 샘플 데이터 1줄 추가
+    st.session_state.df = pd.DataFrame([
+        {
+            "NO.": "1", "날짜": "03.22", "선후공": "선", "결과": "승", 
+            "세트 전적": "OO", "점수": "1500", "내 덱": "KT", 
+            "상대 덱": "Mitsu", "아키타입": "Arch", "승패 요인": "자신 실력",
+            "특정 카드": "", "브릭": False, "실수": False, "비고": ""
         }
-        st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([new_data])], ignore_index=True)
-        st.success("데이터가 추가되었습니다!")
+    ], columns=columns)
 
-# 4. 표 형식으로 보여주기 (수정 가능)
-st.subheader("📝 전체 기록 (수정 가능)")
-# data_editor를 사용하면 엑셀처럼 화면에서 직접 수정이 가능합니다.
-edited_df = st.data_editor(st.session_state.df, num_rows="dynamic", use_container_width=True)
+# 스크린샷의 표 형식처럼 직접 수정 가능한 에디터
+edited_df = st.data_editor(
+    st.session_state.df,
+    num_rows="dynamic", # 행 추가/삭제 가능
+    use_container_width=True,
+    column_config={
+        "브릭": st.column_config.CheckboxColumn("브릭", default=False),
+        "실수": st.column_config.CheckboxColumn("실수", default=False),
+        "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"]),
+        "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"])
+    }
+)
 
-# 5. 파일 저장 버튼
-if st.button("💾 변경사항 CSV로 내보내기"):
+# 3. 데이터 저장 기능
+col_save1, col_save2 = st.columns([1, 5])
+with col_save1:
+    if st.button("💾 변경사항 저장"):
+        st.session_state.df = edited_df
+        st.success("저장되었습니다!")
+
+with col_save2:
     csv = edited_df.to_csv(index=False).encode('utf-8-sig')
     st.download_button(
-        label="CSV 다운로드",
+        label="📥 CSV 다운로드 (GitHub 업로드용)",
         data=csv,
-        file_name=FILENAME,
+        file_name="2026.03 레이팅 - Record.csv",
         mime='text/csv',
     )
-    st.info("다운로드한 파일을 GitHub 저장소에 덮어쓰기하면 데이터가 유지됩니다.")
-
-# 6. 간단 요약 (형식 유지를 위해 하단 배치)
-st.divider()
-st.caption("현재 저장된 총 경기 수: " + str(len(st.session_state.df) - 1) + "판")

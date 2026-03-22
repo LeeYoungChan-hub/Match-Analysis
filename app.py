@@ -101,60 +101,80 @@ if page == "📊 Record":
     # [설정] 표 높이 조절
     TABLE_HEIGHT = 1000 
 
-    # 1. 실시간 통계 계산 (순수 데이터 기준)
-    df_temp = st.session_state.df.copy()
-    total_games = len(df_temp[df_temp['결과'].isin(['승', '패'])])
+    # 1. 실제 데이터 필터링 및 통계 계산
+    raw_df = st.session_state.df.copy()
+    # 첫 행이 이미 '경기' 등의 텍스트라면 계산에서 제외
+    real_data = raw_df[~raw_df['NO.'].isin(['경기'])].copy()
     
-    # 선공률 & 승률 계산
-    f_rate = f"{(len(df_temp[df_temp['선후공'] == '선']) / total_games * 100):.1f}%" if total_games > 0 else "0%"
-    w_rate = f"{(len(df_temp[df_temp['결과'] == '승']) / total_games * 100):.1f}%" if total_games > 0 else "0%"
+    total_games = len(real_data[real_data['결과'].isin(['승', '패'])])
+    f_rate = f"{(len(real_data[real_data['선후공'] == '선']) / total_games * 100):.1f}%" if total_games > 0 else "0.0%"
+    w_rate = f"{(len(real_data[real_data['결과'] == '승']) / total_games * 100):.1f}%" if total_games > 0 else "0.0%"
     
-    # 브릭 & 실수 합계 (체크박스 True 개수 합산)
-    b_sum = df_temp['브릭'].sum() if '브릭' in df_temp.columns else 0
-    m_sum = df_temp['실수'].sum() if '실수' in df_temp.columns else 0
+    # 브릭/실수 합계 계산 (체크된 개수)
+    b_sum = str(real_data['브릭'].apply(lambda x: 1 if str(x).lower() in ['true', '1'] else 0).sum())
+    m_sum = str(real_data['실수'].apply(lambda x: 1 if str(x).lower() in ['true', '1'] else 0).sum())
 
-    # 2. 새로운 경기 추가 버튼
+    # 2. 표의 맨 윗줄(1행) 데이터 생성
+    # 요청하신: 경기/Date/선공률/승률/Result/Use.deck/Opp. deck/Plus Arch./W/L Factor/Certain Card/브릭합/실수합/Detailed
+    first_row = {
+        "NO.": "경기", "날짜": "Date", "선후공": f_rate, "결과": w_rate, 
+        "세트": "Result", "점수": "Score", "내 덱": "Use.deck", "상대 덱": "Opp. deck", 
+        "아키타입": "Plus Arch.", "승패 요인": "W/L Factor", "특정 카드": "Certain Card", 
+        "브릭": b_sum, "실수": m_sum, "비고": "Detailed"
+    }
+    
+    # 1행(요약) + 나머지 데이터를 합친 표시용 데이터프레임
+    display_df = pd.concat([pd.DataFrame([first_row]), real_data], ignore_index=True)
+
+    # 3. 새로운 경기 추가 버튼
     if st.button("➕ 새로운 경기 추가"):
-        new_no = str(len(st.session_state.df) + 1)
+        new_no = str(len(real_data) + 1)
         new_row = pd.DataFrame([{
             "NO.": new_no, "날짜": "", "선후공": "", "결과": "", "세트": "", "점수": "", 
             "내 덱": "", "상대 덱": "", "아키타입": "", "승패 요인": "", "특정 카드": "", 
-            "브릭": False, "실수": False, "비고": ""
+            "브릭": "False", "실수": "False", "비고": ""
         }])
-        st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
+        st.session_state.df = pd.concat([real_data, new_row], ignore_index=True)
         save_records(st.session_state.df)
         st.rerun()
 
-    # 3. 데이터 에디터 (열 머리글에 계산값 주입)
-    # 요청하신 한글/영어/계산값 형식을 label에 반영했습니다.
+    # 4. 데이터 에디터 (표 출력)
     edited = st.data_editor(
-        st.session_state.df, 
+        display_df, 
         use_container_width=True, 
         num_rows="dynamic", 
         hide_index=True, 
-        key="editor_header_summary",
+        key="editor_row1_summary",
         height=TABLE_HEIGHT,
         column_config={
-            "NO.": st.column_config.TextColumn(f"NO. / 경기", width=60),
-            "날짜": st.column_config.TextColumn(f"날짜 / Date", width=80),
-            "선후공": st.column_config.SelectboxColumn(f"선후공 / {f_rate}", options=["", "선", "후"], width=90),
-            "결과": st.column_config.SelectboxColumn(f"결과 / {w_rate}", options=["", "승", "패"], width=80),
-            "세트": st.column_config.SelectboxColumn(f"세트 / Result", options=["", "OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=90),
-            "점수": st.column_config.TextColumn(f"전적 / Score", width=70),
-            "내 덱": st.column_config.SelectboxColumn(f"내 덱 / Use.deck", options=[""] + st.session_state.metadata["my_decks"], width=120),
-            "상대 덱": st.column_config.SelectboxColumn(f"상대 덱 / Opp. deck", options=[""] + st.session_state.metadata["opp_decks"], width=130),
-            "아키타입": st.column_config.SelectboxColumn(f"아키타입 / Plus Arch.", options=[""] + st.session_state.metadata["archetypes"], width=120),
-            "승패 요인": st.column_config.SelectboxColumn(f"승패 요인 / W/L Factor", options=[""] + st.session_state.metadata["win_loss_reasons"], width=120),
-            "특정 카드": st.column_config.SelectboxColumn(f"특정 카드 / Certain Card", options=[""] + st.session_state.metadata["target_cards"], width=120),
-            "브릭": st.column_config.CheckboxColumn(f"브릭 / {b_sum}", width=70),
-            "실수": st.column_config.CheckboxColumn(f"실수 / {m_sum}", width=70),
-            "비고": st.column_config.TextColumn(f"비고 / Detailed", width=400)
+            "NO.": st.column_config.TextColumn("NO.", width=60),
+            "날짜": st.column_config.TextColumn("날짜", width=80),
+            "선후공": st.column_config.SelectboxColumn("선후공", options=["", "선", "후"], width=80),
+            "결과": st.column_config.SelectboxColumn("결과", options=["", "승", "패"], width=80),
+            "세트": st.column_config.SelectboxColumn("세트", options=["", "OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=90),
+            "점수": st.column_config.TextColumn("점수", width=60),
+            "내 덱": st.column_config.SelectboxColumn("내 덱", options=[""] + st.session_state.metadata["my_decks"], width=120),
+            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=[""] + st.session_state.metadata["opp_decks"], width=130),
+            "아키타입": st.column_config.SelectboxColumn("아키타입", options=[""] + st.session_state.metadata["archetypes"], width=110),
+            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=[""] + st.session_state.metadata["win_loss_reasons"], width=110),
+            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=[""] + st.session_state.metadata["target_cards"], width=110),
+            # 브릭/실수에 숫자가 들어가야 하므로 체크박스가 아닌 텍스트로 설정
+            "브릭": st.column_config.TextColumn("브릭", width=60),
+            "실수": st.column_config.TextColumn("실수", width=60),
+            "비고": st.column_config.TextColumn("비고", width=400)
         }
     )
 
-    # 4. 데이터 저장
-    if not edited.equals(st.session_state.df):
-        save_records(edited)
+    # 5. 데이터 저장 로직
+    if not edited.equals(display_df):
+        # 1행(요약행) 제외하고 저장
+        final_df = edited.iloc[1:].reset_index(drop=True)
+        
+        # 저장 시 브릭/실수 컬럼을 다시 불리언으로 변환 (파일 크기 및 분석용)
+        for col in ["브릭", "실수"]:
+            final_df[col] = final_df[col].apply(lambda x: str(x).lower() in ['true', '1', 'checked'])
+            
+        save_records(final_df)
         st.rerun()
         
 # --- PAGE: Analysis ---

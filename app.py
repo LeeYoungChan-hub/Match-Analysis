@@ -14,20 +14,18 @@ st.set_page_config(page_title="YGO Rating Analysis", layout="wide")
 st.markdown("""
 <style>
 
-/* 기본 헤더 완전 제거 */
-thead {display:none !important;}
-[data-testid="stDataFrameResizable"] [role="columnheader"] {display:none !important;}
-[data-testid="stDataFrameResizable"] button {display:none !important;}
-[data-testid="stDataFrameResizable"] svg {display:none !important;}
+/* 데이터에디터 헤더 완전 제거 */
+[data-testid="stDataFrameResizable"] thead {display:none !important;}
+[data-testid="stDataFrameResizable"] [role="rowgroup"]:first-child {display:none !important;}
 
-/* 첫번째 행 (요약행) 강조 */
+/* 첫번째 행 요약 스타일 */
 [data-testid="stDataFrameResizable"] div[role="grid"] div[role="row"]:nth-child(1){
     background-color:#d9ead3 !important;
     font-weight:bold !important;
     color:#000 !important;
 }
 
-/* 텍스트 정렬 */
+/* 셀 스타일 */
 [data-testid="stDataFrameResizable"] div[role="grid"] div[role="row"] div{
     text-align:center !important;
     font-size:13px !important;

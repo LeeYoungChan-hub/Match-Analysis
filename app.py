@@ -134,7 +134,7 @@ if page == "📊 기록":
         st.rerun()
 
     edited_df = st.data_editor(
-        st.session_state.df, use_container_width=True, num_rows="dynamic", hide_index=True, key="ygo_editor_v9",
+        st.session_state.df, use_container_width=True, num_rows="dynamic", hide_index=True, key="ygo_editor_v10",
         column_config={
             "NO.": st.column_config.TextColumn("NO.", width=45),
             "날짜": st.column_config.TextColumn("날짜", width=65),
@@ -146,8 +146,8 @@ if page == "📊 기록":
             "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata.get("archetypes", []), width=90),
             "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.metadata.get("win_loss_reasons", []), width=100),
             "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata.get("target_cards", []), width=100),
-            "브릭": st.column_config.CheckboxColumn("브릭", width=55), 
-            "실수": st.column_config.CheckboxColumn("실수", width=55), 
+            "브릭": st.column_config.CheckboxColumn("브릭", width=85), # 1.5배 확장
+            "실수": st.column_config.CheckboxColumn("실수", width=85), # 1.5배 확장
             "비고": st.column_config.TextColumn("비고", width=500)
         }
     )

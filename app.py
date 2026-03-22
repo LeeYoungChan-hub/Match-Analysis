@@ -59,20 +59,25 @@ def load_metadata():
         "my_decks": ["KT", "Ennea", "Maliss", "Tenpai"],
         "opp_decks": ["KT", "Ennea", "Maliss", "Tenpai", "Labrynth", "Branded"],
         "archetypes": ["운영", "전개", "미드레인지", "함떡", "기타"],
-        "target_cards": ["증식의 G", "하루 우라라", "무한포영", "니비루", "드롤"],
-        "win_loss_reasons": ["상대 패", "자신 실력", "특정 카드", "핸드 말림", "기타"]
+        "win_loss_reasons": ["상대 패", "자신 실력", "특정 카드", "핸드 말림", "기타"],
+        "target_cards": ["증식의 G", "하루 우라라", "무한포영", "니비루", "드롤"]
     }
 
 def load_records():
+    cols = ["NO.", "날짜", "선후공", "결과", "세트 전적", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
     if os.path.exists(RECORD_FILE):
         try:
-            return pd.read_csv(RECORD_FILE)
+            df = pd.read_csv(RECORD_FILE)
+            # 누락된 컬럼 자동 생성 및 타입 맞춤
+            for col in cols:
+                if col not in df.columns:
+                    df[col] = False if col in ["브릭", "실수"] else ""
+            return df
         except: pass
-    return pd.DataFrame(columns=["NO.", "날짜", "선후공", "결과", "세트 전적", "내 덱", "상대 덱", "비고"])
+    return pd.DataFrame(columns=cols)
 
 # --- 4. 분석 표 렌더링 함수 ---
 def render_analysis_table(target_df):
-    # 실제 승/패 데이터가 있는 것만 필터링하여 계산
     calc_df = target_df[target_df['결과'].isin(['승', '패'])]
     total = len(calc_df)
     if total == 0:
@@ -115,7 +120,7 @@ if 'df' not in st.session_state:
 st.sidebar.title("🎮 Rating 메뉴")
 page = st.sidebar.radio("이동할 페이지", ["📊 기록", "📈 분석", "⚙️ 설정"])
 
-# [페이지 1: 기록] 드롭다운 설정 포함
+# [페이지 1: 기록]
 if page == "📊 기록":
     st.title("📊 전적 기록")
     
@@ -125,12 +130,16 @@ if page == "📊 기록":
             "NO.": new_no, "날짜": pd.Timestamp.now().strftime("%Y-%m-%d"), 
             "선후공": "선", "결과": "승", "세트 전적": "OO", 
             "내 덱": st.session_state.metadata["my_decks"][0], 
-            "상대 덱": st.session_state.metadata["opp_decks"][0]
+            "상대 덱": st.session_state.metadata["opp_decks"][0],
+            "아키타입": st.session_state.metadata["archetypes"][0],
+            "승패 요인": st.session_state.metadata["win_loss_reasons"][0],
+            "특정 카드": st.session_state.metadata["target_cards"][0],
+            "브릭": False, "실수": False
         }])
         st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
         st.rerun()
 
-    # 🔥 중요: column_config를 사용하여 드롭다운(Selectbox) 복구
+    # 드롭다운 및 체크박스 설정
     edited_df = st.data_editor(
         st.session_state.df, 
         use_container_width=True, 
@@ -139,9 +148,14 @@ if page == "📊 기록":
         column_config={
             "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], required=True),
             "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], required=True),
-            "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata["my_decks"], required=True),
-            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata["opp_decks"], required=True),
-            "세트 전적": st.column_config.SelectboxColumn("세트 전적", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"])
+            "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata["my_decks"]),
+            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata["opp_decks"]),
+            "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata["archetypes"]),
+            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.metadata["win_loss_reasons"]),
+            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata["target_cards"]),
+            "세트 전적": st.column_config.SelectboxColumn("세트 전적", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"]),
+            "브릭": st.column_config.CheckboxColumn("브릭", default=False),
+            "실수": st.column_config.CheckboxColumn("실수", default=False)
         }
     )
     
@@ -154,10 +168,7 @@ if page == "📊 기록":
 elif page == "📈 분석":
     st.title("📈 Rating Analysis")
     df_analysis = load_records()
-    
-    if df_analysis.empty:
-        st.warning("분석할 전적 데이터가 없습니다.")
-    else:
+    if not df_analysis.empty:
         st.subheader("1. Overall Data")
         render_analysis_table(df_analysis)
         st.divider()
@@ -165,29 +176,39 @@ elif page == "📈 분석":
         selected = st.selectbox("분석할 덱 선택", st.session_state.metadata["my_decks"])
         render_analysis_table(df_analysis[df_analysis['내 덱'] == selected])
 
-# [페이지 3: 설정]
+# [페이지 3: 설정] 요청하신 5칸 배치 적용
 else:
     st.title("⚙️ Rating 설정")
     meta = st.session_state.metadata
     
+    # 1행: 내 덱 (왼쪽), 상대 덱 (오른쪽)
     col1, col2 = st.columns(2)
     with col1:
-        new_my = st.text_area("내 덱 리스트 (쉼표 구분)", ", ".join(meta.get("my_decks", [])))
-        new_opp = st.text_area("상대 덱 리스트 (쉼표 구분)", ", ".join(meta.get("opp_decks", [])))
+        new_my = st.text_area("내 덱 (쉼표 구분)", ", ".join(meta.get("my_decks", [])))
     with col2:
-        new_arche = st.text_area("아키타입", ", ".join(meta.get("archetypes", [])))
-        new_reasons = st.text_area("승패 요인", ", ".join(meta.get("win_loss_reasons", [])))
+        new_opp = st.text_area("상대 덱 (쉼표 구분)", ", ".join(meta.get("opp_decks", [])))
+    
+    # 2행: 승패 요인 (왼쪽), 아키타입 (오른쪽)
+    col3, col4 = st.columns(2)
+    with col3:
+        new_reasons = st.text_area("승패 요인 (쉼표 구분)", ", ".join(meta.get("win_loss_reasons", [])))
+    with col4:
+        new_arche = st.text_area("아키타입 (쉼표 구분)", ", ".join(meta.get("archetypes", [])))
+        
+    # 3행: 특정 카드 (왼쪽 아래)
+    col5, col6 = st.columns(2)
+    with col5:
+        new_cards = st.text_area("특정 카드 (쉼표 구분)", ", ".join(meta.get("target_cards", [])))
     
     if st.button("✅ 설정 저장", type="primary"):
-        updated_meta = {
+        st.session_state.metadata = {
             "my_decks": [x.strip() for x in new_my.split(",") if x.strip()],
             "opp_decks": [x.strip() for x in new_opp.split(",") if x.strip()],
-            "archetypes": [x.strip() for x in new_arche.split(",") if x.strip()],
             "win_loss_reasons": [x.strip() for x in new_reasons.split(",") if x.strip()],
-            "target_cards": meta.get("target_cards", []) # 기존 데이터 유지
+            "archetypes": [x.strip() for x in new_arche.split(",") if x.strip()],
+            "target_cards": [x.strip() for x in new_cards.split(",") if x.strip()]
         }
-        st.session_state.metadata = updated_meta
         with open(META_FILE, 'w', encoding='utf-8') as f:
-            json.dump(updated_meta, f, ensure_ascii=False, indent=4)
-        st.success("설정이 저장되었습니다. 기록 페이지의 드롭다운이 업데이트됩니다.")
+            json.dump(st.session_state.metadata, f, ensure_ascii=False, indent=4)
+        st.success("설정이 저장되었습니다!")
         st.rerun()

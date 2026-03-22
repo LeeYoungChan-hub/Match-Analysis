@@ -3,69 +3,28 @@ import pandas as pd
 import os
 import json
 
-# --- 1. 기본 설정 및 파일 경로 ---
+# --- 1. 설정 및 경로 ---
 RECORD_FILE = 'yugioh_records.csv'
 META_FILE = 'metadata_config.json'
 
 st.set_page_config(page_title="YGO Match Tracker", layout="wide")
 
-# --- 2. [강력 수정] CSS 셀렉터 최적화 (중앙 정렬 및 색상 강제 적용) ---
+# --- 2. [디자인] 분석 페이지 1/3 너비 유지용 CSS ---
 st.markdown("""
     <style>
-    /* 1. 시스템 요소 박멸 */
-    [data-testid="stTableIdxColumn"] { display: none !important; width: 0px !important; }
-    [data-testid="stDataFrameResizable"] div[role="grid"] div[role="row"] div:first-child svg { display: none !important; }
-
-    /* 2. 데이터 에디터 내부 모든 셀 중앙 정렬 강제 적용 */
-    [data-testid="stDataFrameResizable"] div[role="grid"] div[role="row"] div {
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        text-align: center !important;
-    }
-
-    /* 3. 특정 컬럼 색상 강제 지정 (데이터 에디터 텍스트 기준) */
-    /* 선, 승, OO, OXO, XOO (파란색) */
-    div[data-testid="stDataFrameResizable"] div[data-testid="templated-column"] div:contains("선"),
-    div[data-testid="stDataFrameResizable"] div[data-testid="templated-column"] div:contains("승"),
-    div[data-testid="stDataFrameResizable"] div[data-testid="templated-column"] div:contains("OO"),
-    div[data-testid="stDataFrameResizable"] div[data-testid="templated-column"] div:contains("OXO"),
-    div[data-testid="stDataFrameResizable"] div[data-testid="templated-column"] div:contains("XOO") {
-        color: #0000ff !important;
-        font-weight: bold !important;
-    }
-
-    /* 후, 패, XX, XOX, OXX (빨간색) */
-    div[data-testid="stDataFrameResizable"] div[data-testid="templated-column"] div:contains("후"),
-    div[data-testid="stDataFrameResizable"] div[data-testid="templated-column"] div:contains("패"),
-    div[data-testid="stDataFrameResizable"] div[data-testid="templated-column"] div:contains("XX"),
-    div[data-testid="stDataFrameResizable"] div[data-testid="templated-column"] div:contains("XOX"),
-    div[data-testid="stDataFrameResizable"] div[data-testid="templated-column"] div:contains("OXX") {
-        color: #ff0000 !important;
-        font-weight: bold !important;
-    }
-
-    /* 4. 체크박스 색상 (accent-color는 브라우저 지원 필요) */
-    input[type="checkbox"] { cursor: pointer; }
-
-    /* 5. 비고 컬럼 (마지막 열) 왼쪽 정렬로 덮어쓰기 */
-    div[data-testid="stDataFrameResizable"] div[role="row"] div:last-child {
-        justify-content: flex-start !important;
-        text-align: left !important;
-        padding-left: 10px !important;
-    }
-
-    /* 6. 분석 페이지 1/3 너비 */
     .analysis-wrapper { width: 33.3%; min-width: 450px; }
     .styled-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 14px; }
-    .styled-table th { background-color: #f9cb9c !important; padding: 8px; border: 1px solid #dee2e6; }
+    .styled-table th { background-color: #f9cb9c !important; padding: 8px; border: 1px solid #dee2e6; color: black; }
     .styled-table td { padding: 8px; border: 1px solid #dee2e6; text-align: center; }
     .win-text { color: blue; font-weight: bold; }
     .loss-text { color: red; font-weight: bold; }
+    
+    /* 에디터 높이 최적화 */
+    [data-testid="stDataFrameResizable"] { min-height: 600px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. 데이터 핸들링 ---
+# --- 3. 데이터 로직 ---
 def load_metadata():
     if os.path.exists(META_FILE):
         with open(META_FILE, 'r', encoding='utf-8') as f:
@@ -81,24 +40,9 @@ def load_records():
     if os.path.exists(RECORD_FILE):
         df = pd.read_csv(RECORD_FILE, dtype=str).fillna("")
         for col in ["브릭", "실수"]:
-            df[col] = df[col].apply(lambda x: x.lower() == 'true')
+            df[col] = df[col].apply(lambda x: str(x).lower() == 'true')
         return df[cols]
     return pd.DataFrame(columns=cols)
-
-def render_styled_table(title, target_df):
-    calc_df = target_df[target_df['결과'].isin(['승', '패'])]
-    total = len(calc_df)
-    if total == 0: return f"<b>{title} 데이터 없음</b>"
-    wins = len(calc_df[calc_df['결과'] == '승'])
-    losses = total - wins
-    win_rate = (wins/total*100) if total > 0 else 0
-    return f"""
-    <table class="styled-table">
-        <tr><th colspan="4">{title}</th></tr>
-        <tr><td>Games</td><td>Win Rate</td><td>W</td><td>L</td></tr>
-        <tr><td>{total}</td><td>{win_rate:.2f}%</td><td class="win-text">{wins}</td><td class="loss-text">{losses}</td></tr>
-    </table>
-    """
 
 # --- 4. 메인 로직 ---
 if 'metadata' not in st.session_state: st.session_state.metadata = load_metadata()
@@ -108,6 +52,9 @@ menu = st.sidebar.radio("메뉴", ["📊 기록", "📈 분석", "⚙️ 설정"
 
 if menu == "📊 기록":
     st.title("📊 Match Records")
+    
+    # [데이터 가공] 출력용 데이터에 이모지 추가 (이미지 양식 재현)
+    display_df = st.session_state.df.copy()
     
     if st.button("➕ 새로운 경기 추가"):
         m = st.session_state.metadata
@@ -122,22 +69,27 @@ if menu == "📊 기록":
         st.session_state.df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
         st.rerun()
 
+    # 에디터 설정
     edited_df = st.data_editor(
         st.session_state.df, 
         use_container_width=True, 
         hide_index=True,
         num_rows="dynamic",
         column_config={
-            "선후공": st.column_config.SelectboxColumn(options=["선", "후"]),
-            "결과": st.column_config.SelectboxColumn(options=["승", "패"]),
-            "세트 전적": st.column_config.SelectboxColumn(options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"]),
-            "내 덱": st.column_config.SelectboxColumn(options=st.session_state.metadata["my_decks"]),
-            "상대 덱": st.column_config.SelectboxColumn(options=st.session_state.metadata["opp_decks"]),
-            "아키타입": st.column_config.SelectboxColumn(options=st.session_state.metadata["archetypes"]),
-            "승패 요인": st.column_config.SelectboxColumn(options=st.session_state.metadata["win_loss_reasons"]),
-            "특정 카드": st.column_config.SelectboxColumn(options=st.session_state.metadata["target_cards"]),
-            "브릭": st.column_config.CheckboxColumn(),
-            "실수": st.column_config.CheckboxColumn(),
+            # alignment="center"를 통해 중앙 정렬 강제 적용
+            "NO.": st.column_config.TextColumn(alignment="center"),
+            "날짜": st.column_config.TextColumn(alignment="center"),
+            "선후공": st.column_config.SelectboxColumn(options=["선", "후"], alignment="center"),
+            "결과": st.column_config.SelectboxColumn(options=["승", "패"], alignment="center"),
+            "세트 전적": st.column_config.SelectboxColumn(options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], alignment="center"),
+            "내 덱": st.column_config.SelectboxColumn(options=st.session_state.metadata["my_decks"], alignment="center"),
+            "상대 덱": st.column_config.SelectboxColumn(options=st.session_state.metadata["opp_decks"], alignment="center"),
+            "아키타입": st.column_config.SelectboxColumn(options=st.session_state.metadata["archetypes"], alignment="center"),
+            "승패 요인": st.column_config.SelectboxColumn(options=st.session_state.metadata["win_loss_reasons"], alignment="center"),
+            "특정 카드": st.column_config.SelectboxColumn(options=st.session_state.metadata["target_cards"], alignment="center"),
+            "브릭": st.column_config.CheckboxColumn(alignment="center"),
+            "실수": st.column_config.CheckboxColumn(alignment="center"),
+            "비고": st.column_config.TextColumn(width="large")
         },
         key="editor"
     )
@@ -146,7 +98,6 @@ if menu == "📊 기록":
         st.session_state.df = edited_df
         edited_df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
         st.rerun()
-
 elif menu == "📈 분석":
     st.title("📈 Rating Analysis")
     if not st.session_state.df.empty:

@@ -9,16 +9,20 @@ META_FILE = 'metadata_config.json'
 
 st.set_page_config(page_title="YGO Rating Analysis", layout="wide")
 
-# 🔥 [UI 최적화] 표 중앙 정렬 및 헤더 스타일 (캡처와 유사하게 설정)
+# 🔥 [UI 최적화] 표 디자인 (라벨 행 배경색 및 중앙 정렬)
 st.markdown("""
     <style>
     [data-testid="stTableIdxColumn"] { display: none; }
-    th { text-align: center !important; background-color: #f0f2f6 !important; font-weight: bold; }
-    td { text-align: center !important; }
-    /* 데이터 에디터 셀 중앙 정렬 */
-    div[data-testid="stDataFrame"] div[role="gridcell"] > div {
-        justify-content: center !important;
-        text-align: center !important;
+    th { display: none; } /* 데이터프레임 자체 헤더는 숨김 */
+    td { 
+        text-align: center !important; 
+        border: 1px solid #dee2e6 !important;
+        padding: 10px !important;
+    }
+    /* 라벨이 들어가는 홀수 번째 행 배경색 설정 */
+    tr:nth-child(odd) {
+        background-color: #f0f2f6 !important;
+        font-weight: bold;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -41,9 +45,8 @@ def load_records():
     if os.path.exists(RECORD_FILE):
         try:
             df = pd.read_csv(RECORD_FILE)
-            # 텍스트 데이터가 섞인 행이나 빈 행 제외 (분석용 필터링)
-            df = df[df['결과'].isin(['승', '패'])]
-            return df
+            # 분석용 필터링 (결과값이 있는 데이터만)
+            return df[df['결과'].isin(['승', '패'])]
         except: pass
     return pd.DataFrame()
 
@@ -51,11 +54,11 @@ def load_records():
 if 'metadata' not in st.session_state:
     st.session_state.metadata = load_metadata()
 
-# --- 3. 분석 표 생성 함수 (이미지 레이아웃 8열 구성) ---
+# --- 3. 분석 표 생성 함수 (라벨-값 상하 배치 8행 구성) ---
 def create_analysis_table(target_df):
     total = len(target_df)
     if total == 0:
-        return pd.DataFrame([["데이터 없음"] * 8])
+        return pd.DataFrame([["데이터 없음"] * 4])
 
     wins = len(target_df[target_df['결과'] == '승'])
     losses = len(target_df[target_df['결과'] == '패'])
@@ -73,12 +76,16 @@ def create_analysis_table(target_df):
     s_losses = len(s_df[s_df['결과'] == '패'])
     s_win_rate = (s_wins / s_count * 100) if s_count > 0 else 0
 
-    # 📸 캡처 이미지와 동일한 8열 레이아웃 구성
+    # 📸 캡처 이미지 레이아웃: 라벨 행과 값 행을 교차로 배치
     data = [
-        ["게임 수", f"{total}", "전체 승률", f"{win_rate:.2f}%", "전체 승리수", f"{wins}", "전체 패배수", f"{losses}"],
-        ["선공 수", f"{f_count}", "후공 수", f"{s_count}", "선공 확률", f"{(f_count/total*100):.2f}%", "후공 확률", f"{(s_count/total*100):.2f}%"],
-        ["선공일 때 승리 수", f"{f_wins}", "패배 수", f"{f_losses}", "선공일 때 승률", f"{f_win_rate:.2f}%", "선공일 때 패배율", f"{(100-f_win_rate):.2f}%"],
-        ["후공일 때 승리 수", f"{s_wins}", "패배 수", f"{s_losses}", "후공일 때 승률", f"{s_win_rate:.2f}%", "후공일 때 패배율", f"{(100-s_win_rate):.2f}%"]
+        ["게임 수", "전체 승률", "전체 승리수", "전체 패배 수"], # 1행: 라벨
+        [f"{total}", f"{win_rate:.2f}%", f"{wins}", f"{losses}"], # 2행: 값
+        ["선공 수", "후공 수", "선공 확률", "후공 확률"], # 3행: 라벨
+        [f"{f_count}", f"{s_count}", f"{(f_count/total*100):.2f}%", f"{(s_count/total*100):.2f}%"], # 4행: 값
+        ["선공일 때 승리 수", "패배 수", "선공일 때 승률", "선공일 때 패배율"], # 5행: 라벨
+        [f"{f_wins}", f"{f_losses}", f"{f_win_rate:.2f}%", f"{(100-f_win_rate):.2f}%"], # 6행: 값
+        ["후공일 때 승리 수", "패배 수", "후공일 때 승률", "후공일 때 패배율"], # 7행: 라벨
+        [f"{s_wins}", f"{s_losses}", f"{s_win_rate:.2f}%", f"{(100-s_win_rate):.2f}%"]  # 8행: 값
     ]
     return pd.DataFrame(data)
 
@@ -86,10 +93,8 @@ def create_analysis_table(target_df):
 st.sidebar.title("🎮 Rating 메뉴")
 page = st.sidebar.radio("이동할 페이지", ["📊 기록", "📈 분석", "⚙️ 설정"])
 
-# [1] 기록 페이지
 if page == "📊 기록":
     st.title("📊 전적 기록")
-    # 세션에 데이터가 없으면 로드
     if 'df' not in st.session_state:
         st.session_state.df = load_records()
     
@@ -108,31 +113,28 @@ if page == "📊 기록":
         st.session_state.df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
         st.success("저장 완료!")
 
-# [2] 분석 페이지 (가장 중요한 부분)
 elif page == "📈 분석":
     st.title("📈 Rating Analysis")
-    # 분석 시에는 항상 파일에서 최신 데이터를 직접 읽어옴
     df_for_analysis = load_records()
     
     if df_for_analysis.empty:
-        st.warning("분석할 전적 데이터가 없습니다. 먼저 기록을 추가해주세요.")
+        st.warning("분석할 전적 데이터가 없습니다.")
     else:
         st.subheader("1. Overall Data")
         st.table(create_analysis_table(df_for_analysis))
 
         st.divider()
 
-        st.subheader("2. 내 덱별 승률")
+        st.subheader("2. 내 덱별 상세 분석")
         selected_deck = st.selectbox("분석할 덱 선택", st.session_state.metadata["my_decks"])
         deck_df = df_for_analysis[df_for_analysis['내 덱'] == selected_deck]
         
         if deck_df.empty:
-            st.info(f"'{selected_deck}' 덱의 플레이 기록이 없습니다.")
+            st.info(f"'{selected_deck}' 덱의 기록이 없습니다.")
         else:
             st.table(create_analysis_table(deck_df))
 
-# [3] 설정 페이지
-else:
+else: # ⚙️ 설정 페이지
     st.title("⚙️ Rating 설정")
     meta = st.session_state.metadata
     

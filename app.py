@@ -5,8 +5,8 @@ import pandas as pd
 # 1. 페이지 설정
 st.set_page_config(page_title="Rating Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
-# 열 너비 설정
-CELL_FONT_PX = "10px"
+# 표(data_editor) 스타일 및 너비 설정
+CELL_FONT_PX = "10px" # 요청하신 셀 글자 크기
 COL_W_STATUS = 30  
 COL_W_NO = 80      
 COL_W_SMALL = 55   
@@ -17,6 +17,8 @@ def _compact_layout_css() -> None:
         f"""
         <style>
         .block-container {{ padding-top: 0.45rem !important; padding-bottom: 0.5rem !important; padding-left: 0.55rem !important; padding-right: 0.55rem !important; max-width: 100% !important; }}
+        
+        /* 헤더 글자 크기 조정 */
         [data-testid="stDataFrame"] {{ margin-bottom: 0.15rem !important; font-size: {CELL_FONT_PX} !important; }}
         
         /* 중앙 정렬 최적화 */
@@ -25,6 +27,13 @@ def _compact_layout_css() -> None:
             text-align: center !important; 
             justify-content: center !important; 
             padding: 0px !important;
+        }}
+        
+        /* ★★★ [요청 사항] 셀 내부 입력 글자 크기 10px로 축소 ★★★ */
+        [data-testid="stDataFrame"] [role="gridcell"] input,
+        [data-testid="stDataFrame"] [role="gridcell"] select,
+        [data-testid="stDataFrame"] [role="gridcell"] label {{
+            font-size: {CELL_FONT_PX} !important;
         }}
         
         /* 하단 탭 스타일 */
@@ -47,6 +56,8 @@ STATUS_OPTS = ["⚪", "🔵", "🟠"]
 if 'df' not in st.session_state:
     try:
         st.session_state.df = pd.read_csv(FILENAME)
+        if "세트 전적" in st.session_state.df.columns:
+            st.session_state.df = st.session_state.df.rename(columns={"세트 전적": "세트"})
         if "상태" not in st.session_state.df.columns:
             st.session_state.df.insert(1, "상태", "⚪")
         st.session_state.df['브릭'] = pd.to_numeric(st.session_state.df['브릭'], errors='coerce').fillna(0).astype(bool)
@@ -54,9 +65,10 @@ if 'df' not in st.session_state:
     except:
         columns = ["NO.", "상태", "날짜", "선후공", "결과", "세트", "점수", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
         sub_label_row = {
-            "NO.": "Game No.", "상태": "⚪", "날짜": "Date", "선후공": "0%", "결과": "0%",
-            "세트": "Res", "점수": "0", "내 덱": "My", "상대 덱": "Opp", "아키타입": "Arch",
-            "승패 요인": "Factor", "특정 카드": "Card", "브릭": 0, "실수": 0, "비고": "Note"
+            "NO.": "0", "상태": "⚪", "날짜": "Date", "선후공": "0.00%", "결과": "0.00%",
+            "세트": "Result", "점수": "0", "내 덱": "Use.deck", "상대 덱": "Opp. deck",
+            "아키타입": "Plus Arch.", "승패 요인": "W/L Factor", "특정 카드": "Certain Card",
+            "브릭": 0, "실수": 0, "비고": "Detail"
         }
         st.session_state.df = pd.DataFrame([sub_label_row], columns=columns)
 
@@ -129,7 +141,6 @@ with tab_record:
             "점수": st.column_config.TextColumn("점수", width=COL_W_FIXED),
             "브릭": st.column_config.CheckboxColumn("브릭"),
             "실수": st.column_config.CheckboxColumn("실수"),
-            # 요청하신 드롭다운 설정들
             "내 덱": st.column_config.SelectboxColumn("내 덱", options=[""] + st.session_state.options["내 덱"]),
             "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=[""] + st.session_state.options["상대 덱"]),
             "아키타입": st.column_config.SelectboxColumn("아키타입", options=[""] + st.session_state.options["아키타입"]),
@@ -137,6 +148,7 @@ with tab_record:
             "승패 요인": st.column_config.SelectboxColumn("요인", options=[""] + st.session_state.options["승패 요인"]),
         }
     )
+    st.session_state.last_edited_record_data = edited_data.copy()
 
     if st.button("💾 데이터 저장", type="primary", use_container_width=True):
         total = len(edited_data)
@@ -161,7 +173,6 @@ with tab_record:
 with tab_setting:
     st.subheader("⚙️ 리스트 관리 (한 줄에 하나씩 입력)")
     
-    # 2단 레이아웃으로 설정창 구성
     c1, c2 = st.columns(2)
     with c1:
         new_my = st.text_area("내 덱", value="\n".join(st.session_state.options["내 덱"]), height=150)
@@ -170,12 +181,12 @@ with tab_setting:
         new_opp = st.text_area("상대 덱", value="\n".join(st.session_state.options["상대 덱"]), height=150)
         new_card = st.text_area("특정 카드", value="\n".join(st.session_state.options["특정 카드"]), height=150)
     
-    new_factor = st.text_input("승패 요인 (쉼표로 구분)", value=", ".join(st.session_state.options["승패 요인"]))
+    new_factor = st.text_area("승패 요인", value="\n".join(st.session_state.options["승패 요인"]), height=100)
 
     if st.button("✅ 모든 설정 적용", use_container_width=True):
         st.session_state.options["내 덱"] = [x.strip() for x in new_my.split("\n") if x.strip()]
         st.session_state.options["아키타입"] = [x.strip() for x in new_arch.split("\n") if x.strip()]
         st.session_state.options["상대 덱"] = [x.strip() for x in new_opp.split("\n") if x.strip()]
         st.session_state.options["특정 카드"] = [x.strip() for x in new_card.split("\n") if x.strip()]
-        st.session_state.options["승패 요인"] = [x.strip() for x in new_factor.split(",") if x.strip()]
-        st.success("설정이 드롭다운에 적용되었습니다. Game Record 탭에서 확인하세요!")
+        st.session_state.options["승패 요인"] = [x.strip() for x in new_factor.split("\n") if x.strip()]
+        st.success("설정이 드롭다운에 적용되었습니다.")

@@ -31,17 +31,26 @@ st.markdown(f"""
 
 # --- 3. 데이터 처리 함수 ---
 def load_metadata():
-    if os.path.exists(META_FILE):
-        with open(META_FILE, 'r', encoding='utf-8') as f:
-            try: return json.load(f)
-            except: pass
-    return {
+    # 기본값 설정
+    default_meta = {
         "my_decks": ["KT", "Ennea", "Maliss", "Tenpai"],
         "opp_decks": ["KT", "Ennea", "Maliss", "Tenpai", "Labrynth", "Branded"],
         "archetypes": ["운영", "전개", "미드레인지", "함떡", "기타"],
         "win_loss_reasons": ["상대 패", "자신 실력", "특정 카드", "핸드 말림", "기타"],
         "target_cards": ["증식의 G", "하루 우라라", "무한포영", "니비루", "드롤"]
     }
+    
+    if os.path.exists(META_FILE):
+        with open(META_FILE, 'r', encoding='utf-8') as f:
+            try: 
+                saved_meta = json.load(f)
+                # 🔥 중요: 저장된 파일에 누락된 키가 있으면 기본값으로 채워줌 (KeyError 방지)
+                for key, value in default_meta.items():
+                    if key not in saved_meta:
+                        saved_meta[key] = value
+                return saved_meta
+            except: pass
+    return default_meta
 
 def load_records():
     cols = ["NO.", "날짜", "선후공", "결과", "세트 전적", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
@@ -55,15 +64,11 @@ def load_records():
         except: pass
     return pd.DataFrame(columns=cols)
 
-# 🔥 [핵심] 자동 저장 함수
+# 자동 저장 함수
 def save_data_auto():
-    # 에디터에서 변경된 내용을 가져와서 세션 데이터에 반영
     if "rating_editor" in st.session_state:
-        # data_editor의 변경사항(edited_rows, added_rows 등)이 반영된 최신 데이터
         df = st.session_state["rating_editor"]["dataframe"]
-        # NO. 재정렬
         df["NO."] = range(1, len(df) + 1)
-        # 파일 저장
         df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
         st.session_state.df = df
 
@@ -72,7 +77,7 @@ def render_analysis_table(target_df):
     calc_df = target_df[target_df['결과'].isin(['승', '패'])]
     total = len(calc_df)
     if total == 0: return "<p style='color:gray;'>분석할 데이터가 없습니다.</p>"
-    wins = len(calc_df[calc_df['결과'] == '승'])
+    wins = len(calc_df[calc_df['결일'] == '승'])
     losses = len(calc_df[calc_df['결과'] == '패'])
     win_rate = (wins / total * 100)
     f_df = calc_df[calc_df['선후공'] == '선']
@@ -102,7 +107,7 @@ if 'df' not in st.session_state:
 page = st.sidebar.radio("메뉴", ["📊 기록", "📈 분석", "⚙️ 설정"])
 
 if page == "📊 기록":
-    st.title("📊 전적 기록 (자동 저장 모드)")
+    st.title("📊 전적 기록 (자동 저장)")
     
     if st.button("➕ 새로운 경기 추가"):
         new_row = pd.DataFrame([{
@@ -113,14 +118,13 @@ if page == "📊 기록":
             "아키타입": st.session_state.metadata["archetypes"][0],
             "승패 요인": st.session_state.metadata["win_loss_reasons"][0],
             "특정 카드": st.session_state.metadata["target_cards"][0],
-            "브릭": False, "실수": False
+            "브릭": False, "실수": False, "비고": ""
         }])
         st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
         st.session_state.df["NO."] = range(1, len(st.session_state.df) + 1)
-        st.session_state.df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig') # 추가 즉시 저장
+        st.session_state.df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
         st.rerun()
 
-    # 🔥 on_change를 사용하여 데이터 수정 시 자동 저장되도록 설정
     st.data_editor(
         st.session_state.df, 
         use_container_width=True, 
@@ -133,49 +137,4 @@ if page == "📊 기록":
             "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], required=True),
             "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], required=True),
             "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata["my_decks"]),
-            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata["opp_decks"]),
-            "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata["archetypes"]),
-            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.metadata["win_loss_reasons"]),
-            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata["target_cards"]),
-            "세트 전적": st.column_config.SelectboxColumn("세트 전적", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"]),
-            "브릭": st.column_config.CheckboxColumn("브릭", default=False),
-            "실수": st.column_config.CheckboxColumn("실수", default=False)
-        }
-    )
-    st.caption("💡 셀 수정 후 다른 곳을 클릭하면 자동으로 저장되고 NO.가 정렬됩니다.")
-
-elif page == "📈 분석":
-    st.title("📈 Rating Analysis")
-    df_analysis = load_records()
-    if not df_analysis.empty:
-        st.markdown('<div class="analysis-wrapper">', unsafe_allow_html=True)
-        st.subheader("1. Overall Data")
-        st.markdown(render_analysis_table(df_analysis), unsafe_allow_html=True)
-        st.subheader("2. 내 덱별 상세 분석")
-        selected = st.selectbox("분석할 덱 선택", st.session_state.metadata["my_decks"], label_visibility="collapsed")
-        st.markdown(render_analysis_table(df_analysis[df_analysis['내 덱'] == selected]), unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-else:
-    st.title("⚙️ Rating 설정")
-    meta = st.session_state.metadata
-    c1, c2 = st.columns(2)
-    with c1: new_my = st.text_area("내 덱", ", ".join(meta.get("my_decks", [])))
-    with c2: new_opp = st.text_area("상대 덱", ", ".join(meta.get("opp_decks", [])))
-    c3, c4 = st.columns(2)
-    with c3: new_reasons = st.text_area("승패 요인", ", ".join(meta.get("win_loss_reasons", [])))
-    with c4: new_arche = st.text_area("아키타입", ", ".join(meta.get("archetypes", [])))
-    c5, _ = st.columns(2)
-    with c5: new_cards = st.text_area("특정 카드", ", ".join(meta.get("target_cards", [])))
-    if st.button("✅ 설정 저장"):
-        st.session_state.metadata = {
-            "my_decks": [x.strip() for x in new_my.split(",") if x.strip()],
-            "opp_decks": [x.strip() for x in new_opp.split(",") if x.strip()],
-            "win_loss_reasons": [x.strip() for x in new_reasons.split(",") if x.strip()],
-            "archetypes": [x.strip() for x in new_arche.split(",") if x.strip()],
-            "target_cards": [x.strip() for x in new_cards.split(",") if x.strip()]
-        }
-        with open(META_FILE, 'w', encoding='utf-8') as f:
-            json.dump(st.session_state.metadata, f, ensure_ascii=False, indent=4)
-        st.success("설정 저장 완료!")
-        st.rerun()
+            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_

@@ -101,37 +101,48 @@ import pandas as pd
 if page == "📊 Record":
     st.title("📊 Match Record")
     
-    # [조절] 표의 높이를 숫자로 지정 (예: 1000, 2000 등)
+    # [설정] 표의 높이를 여기서 조절하세요 (예: 500, 1000, 2000 등)
+    # 2000 정도로 크게 잡으면 스크롤 없이 아래로 길게 보입니다.
     TABLE_HEIGHT = 1000 
 
-    # 1. 새로운 경기 추가 (완전 빈 행 생성)
+    # 1. 새로운 경기 추가 로직 (완전 빈 칸 버전)
     if st.button("➕ 새로운 경기 추가"):
         new_no = str(len(st.session_state.df) + 1)
         
-        # 모든 값을 ""로 설정하여 None 노출 방지
+        # [수정] 선후공, 결과까지 포함하여 모든 텍스트 필드를 ""로 초기화
         new_row = pd.DataFrame([{
-            "NO.": new_no, "날짜": "", "선후공": "", "결과": "", 
-            "세트": "", "점수": "", "내 덱": "", "상대 덱": "", 
-            "아키타입": "", "승패 요인": "", "특정 카드": "", 
-            "브릭": False, "실수": False, "비고": ""
+            "NO.": new_no, 
+            "날짜": "", 
+            "선후공": "",  # 기본값 '선' 제거
+            "결과": "",    # 기본값 '승' 제거
+            "세트": "", 
+            "점수": "", 
+            "내 덱": "", 
+            "상대 덱": "", 
+            "아키타입": "", 
+            "승패 요인": "", 
+            "특정 카드": "", 
+            "브릭": False, 
+            "실수": False, 
+            "비고": ""
         }])
         
         st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
         save_records(st.session_state.df)
         st.rerun()
 
-    # 2. 데이터 에디터 (표 안에 없는 값도 빈칸으로 보이도록 설정)
-    # options 앞에 [""]를 붙여 목록에 없는 상태를 빈 칸으로 표현합니다.
+    # 2. 데이터 에디터 설정
     edited = st.data_editor(
         st.session_state.df, 
         use_container_width=True, 
         num_rows="dynamic", 
         hide_index=True, 
-        key="editor_final_no_none",
-        height=TABLE_HEIGHT,
+        key="editor_vfinal_custom",
+        height=TABLE_HEIGHT, # 위에서 설정한 높이가 적용됩니다.
         column_config={
             "NO.": st.column_config.TextColumn("NO.", width=50),
             "날짜": st.column_config.TextColumn("날짜", width=70),
+            # Selectbox 컬럼들이 빈 값을 허용하도록 설정
             "선후공": st.column_config.SelectboxColumn("선후공", options=["", "선", "후"], width=70),
             "결과": st.column_config.SelectboxColumn("결과", options=["", "승", "패"], width=60),
             "세트": st.column_config.SelectboxColumn("세트", options=["", "OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=70),
@@ -147,7 +158,7 @@ if page == "📊 Record":
         }
     )
 
-    # 3. 변경 사항 저장
+    # 3. 변경 사항 실시간 저장
     if not edited.equals(st.session_state.df):
         save_records(edited)
         st.rerun()

@@ -126,20 +126,28 @@ if page == "📊 Rating (전적 기록/분석)":
         st.rerun()
 
     # 데이터 에디터
-    edited_df = st.data_editor(
-        st.session_state.df, 
-        use_container_width=True, 
-        num_rows="dynamic",
-        hide_index=True,
-        key="rating_editor_v4",
-        column_config={
-            "NO.": st.column_config.NumberColumn("No.", disabled=True, width="small"),
-            "선후공": st.column_config.SelectboxColumn("선/후", options=["선", "후"], width="small"),
-            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width="small"),
-            "매치 상세": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width="small"),
-            "브릭": st.column_config.CheckboxColumn("브릭", width="small"),
-            "실수": st.column_config.CheckboxColumn("실수", width="small"),
-            "비고": st.column_config.TextColumn("비고", width="large")
+  edited_df = st.data_editor(
+    st.session_state.df, 
+    use_container_width=True, 
+    num_rows="dynamic",
+    hide_index=True,
+    key="rating_editor_v5",
+    column_config={
+        "NO.": st.column_config.NumberColumn("No.", disabled=True, width="small", alignment="center"),
+        "날짜": st.column_config.TextColumn("날짜", width="medium", alignment="center"),
+        "선후공": st.column_config.SelectboxColumn("선/후", options=["선", "후"], width="small", alignment="center"),
+        "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width="small", alignment="center"),
+        "매치 상세": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width="small", alignment="center"),
+        "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata["my_decks"], alignment="center"),
+        "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata["opp_decks"], alignment="center"),
+        "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata["archetypes"], alignment="center"),
+        "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata["target_cards"], alignment="center"),
+        "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.metadata["win_loss_reasons"], alignment="center"),
+        "브릭": st.column_config.CheckboxColumn("브릭", width="small"), # 체크박스는 기본 중앙
+        "실수": st.column_config.CheckboxColumn("실수", width="small"),
+        "비고": st.column_config.TextColumn("비고", width="large", alignment="center")
+    }
+)
         }
     )
 

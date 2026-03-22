@@ -4,54 +4,64 @@ import pandas as pd
 # 1. 페이지 설정
 st.set_page_config(page_title="Rating Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
-# 세로·좁은 화면에서 한 화면에 가깝게 보이도록 여백·타이포 축소
+# 표(data_editor) 셀 글자 크기 · NO.~점수 열 너비 (제목/캡션은 건드리지 않음)
+CELL_FONT_PX = "15px"
+COL_W_NO_TO_SCORE = "92px"
+
+
+# 세로·좁은 화면 레이아웃 + 표만 스프레드시트 스타일
 def _compact_layout_css() -> None:
     st.markdown(
-        """
+        f"""
         <style>
-        .block-container {
+        .block-container {{
             padding-top: 0.45rem !important;
             padding-bottom: 0.3rem !important;
             padding-left: 0.55rem !important;
             padding-right: 0.55rem !important;
             max-width: 100% !important;
-        }
-        section[data-testid="stMain"] > div { padding-top: 0.3rem !important; padding-bottom: 0.2rem !important; }
-        /* Rating Dashboard 본문: 스프레드시트 느낌 10px */
-        section[data-testid="stMain"] h1 { font-size: 10px !important; line-height: 1.2 !important; margin: 0 0 0.2rem 0 !important; padding: 0 !important; }
-        section[data-testid="stMain"] h2, section[data-testid="stMain"] h3 { font-size: 10px !important; line-height: 1.2 !important; margin: 0.28rem 0 0.12rem 0 !important; padding: 0 !important; }
-        section[data-testid="stMain"] [data-testid="stCaption"] { margin-bottom: 0.22rem !important; font-size: 10px !important; line-height: 1.2 !important; }
-        div[data-testid="stRadio"] label, div[data-testid="stRadio"] p { font-size: 10px !important; }
-        .stTabs [data-baseweb="tab-list"] { min-height: 1.85rem !important; gap: 0.2rem !important; margin-bottom: 0 !important; }
-        .stTabs [data-baseweb="tab"] { padding: 0.28rem 0.5rem !important; font-size: 0.82rem !important; }
-        .stTabs [data-baseweb="tab-panel"] { padding-top: 0.28rem !important; }
-        div[data-testid="stVerticalBlock"] > div { gap: 0.28rem !important; }
-        div[data-testid="stElementContainer"] { margin-bottom: 0.25rem !important; }
-        /* 스프레드시트: 본문 10px, 셀 가운데 맞춤 */
-        [data-testid="stDataFrame"] { margin-bottom: 0.15rem !important; font-size: 10px !important; }
-        [data-testid="stDataFrame"] * { line-height: 1.2 !important; font-size: 10px !important; }
+        }}
+        section[data-testid="stMain"] > div {{ padding-top: 0.3rem !important; padding-bottom: 0.2rem !important; }}
+        h1 {{ font-size: clamp(1.1rem, 4vw, 1.5rem) !important; line-height: 1.2 !important; margin: 0 0 0.25rem 0 !important; padding: 0 !important; }}
+        h2, h3 {{ font-size: clamp(0.95rem, 3.5vw, 1.15rem) !important; line-height: 1.2 !important; margin: 0.35rem 0 0.15rem 0 !important; padding: 0 !important; }}
+        [data-testid="stCaption"] {{ margin-bottom: 0.25rem !important; font-size: 0.85rem !important; line-height: 1.35 !important; }}
+        div[data-testid="stRadio"] label, div[data-testid="stRadio"] p {{ font-size: 0.95rem !important; }}
+        .stTabs [data-baseweb="tab-list"] {{ min-height: 1.85rem !important; gap: 0.2rem !important; margin-bottom: 0 !important; }}
+        .stTabs [data-baseweb="tab"] {{ padding: 0.28rem 0.5rem !important; font-size: 0.82rem !important; }}
+        .stTabs [data-baseweb="tab-panel"] {{ padding-top: 0.28rem !important; }}
+        div[data-testid="stVerticalBlock"] > div {{ gap: 0.28rem !important; }}
+        div[data-testid="stElementContainer"] {{ margin-bottom: 0.25rem !important; }}
+        /* 표 안 글자만 {CELL_FONT_PX} — 셀 높이·여백 맞춤 */
+        [data-testid="stDataFrame"] {{ margin-bottom: 0.15rem !important; font-size: {CELL_FONT_PX} !important; }}
+        [data-testid="stDataFrame"] * {{ line-height: 1.25 !important; font-size: {CELL_FONT_PX} !important; }}
+        [data-testid="stDataFrame"] [role="gridcell"],
+        [data-testid="stDataFrame"] [role="columnheader"] {{
+            min-height: 42px !important;
+            padding-top: 6px !important;
+            padding-bottom: 6px !important;
+            box-sizing: border-box !important;
+        }}
         [data-testid="stDataFrame"] [role="gridcell"],
         [data-testid="stDataFrame"] [role="columnheader"],
         [data-testid="stDataFrame"] [role="gridcell"] *,
-        [data-testid="stDataFrame"] [role="columnheader"] * {
+        [data-testid="stDataFrame"] [role="columnheader"] * {{
             text-align: center !important;
             vertical-align: middle !important;
             justify-content: center !important;
-        }
-        [data-testid="stDataFrame"] [role="gridcell"] label { justify-content: center !important; width: 100% !important; }
+        }}
+        [data-testid="stDataFrame"] [role="gridcell"] label {{ justify-content: center !important; width: 100% !important; }}
         [data-testid="stDataFrame"] [role="columnheader"],
-        [data-testid="stDataFrame"] [role="columnheader"] * {
+        [data-testid="stDataFrame"] [role="columnheader"] * {{
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
-        }
-        /* 탭이 좁은 화면에서 잘리지 않도록 */
-        .stTabs [data-baseweb="tab-list"] { flex-wrap: nowrap !important; overflow-x: auto !important; width: 100% !important; }
-        .stDownloadButton { margin-top: 0.1rem !important; }
-        .stDownloadButton button { padding: 0.3rem 0.65rem !important; font-size: 0.8rem !important; min-height: 2rem !important; }
-        @media screen and (max-aspect-ratio: 1/1) {
-            .block-container { padding-top: 0.3rem !important; padding-bottom: 0.2rem !important; }
-        }
+        }}
+        .stTabs [data-baseweb="tab-list"] {{ flex-wrap: nowrap !important; overflow-x: auto !important; width: 100% !important; }}
+        .stDownloadButton {{ margin-top: 0.1rem !important; }}
+        .stDownloadButton button {{ padding: 0.35rem 0.75rem !important; font-size: 0.9rem !important; min-height: 2.25rem !important; }}
+        @media screen and (max-aspect-ratio: 1/1) {{
+            .block-container {{ padding-top: 0.3rem !important; padding-bottom: 0.2rem !important; }}
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -62,8 +72,6 @@ _compact_layout_css()
 
 # 2. 데이터 및 설정값 초기화
 FILENAME = "2026.03 레이팅 - Record.csv"
-# NO. ~ 점수 열 공통 너비 (픽셀)
-COL_W_NO_TO_SCORE = "70px"
 
 if 'df' not in st.session_state:
     try:
@@ -208,19 +216,13 @@ def _persist_record_csv(guide: pd.DataFrame, records: pd.DataFrame) -> None:
         st.error(f"CSV 저장 실패: {e}")
 
 
-# 3. 페이지 전환 (상단 고정 — Setting이 숨지 않도록 탭 대신 라디오 사용)
-page = st.radio(
-    "페이지",
-    ["📊 Record", "⚙️ Setting"],
-    horizontal=True,
-    label_visibility="collapsed",
-    key="main_nav",
-)
+# 3. Record / Setting — 탭으로 고정 (두 페이지 항상 표시)
+tab_record, tab_setting = st.tabs(["📊 Record", "⚙️ Setting"])
 
 # ---------------------------------------------------------
 # Record (Rating Dashboard)
 # ---------------------------------------------------------
-if page == "📊 Record":
+with tab_record:
     if "세트 전적" in st.session_state.df.columns:
         st.session_state.df = st.session_state.df.rename(columns={"세트 전적": "세트"})
 
@@ -255,7 +257,7 @@ if page == "📊 Record":
     edited_guide = st.data_editor(
         guide_df,
         use_container_width=True,
-        height=70,
+        height=118,
         num_rows="fixed",
         hide_index=True,
         key="guide_editor",
@@ -282,7 +284,7 @@ if page == "📊 Record":
         data_df,
         num_rows="dynamic",
         use_container_width=True,
-        height=320,
+        height=400,
         key="data_editor",
         column_config={
             "NO.": st.column_config.TextColumn("NO.", width=COL_W_NO_TO_SCORE),
@@ -312,7 +314,7 @@ if page == "📊 Record":
 # ---------------------------------------------------------
 # Setting
 # ---------------------------------------------------------
-else:
+with tab_setting:
     st.title("⚙️ Setting")
     col1, col2, col3 = st.columns(3)
     with col1:

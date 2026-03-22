@@ -160,116 +160,114 @@ elif page == "📈 Analysis":
     df_ana = load_records()
     
     if not df_ana.empty:
-        # 데이터 전처리: 계산을 위한 수치화
+        # 데이터 전처리: 승/패 데이터만 추출 및 수치화
         calc_df = df_ana[df_ana['결과'].isin(['승', '패'])].copy()
         
         if calc_df.empty:
             st.warning("분석할 승/패 데이터가 없습니다.")
         else:
-            # 헬퍼 컬럼 생성
+            # 계산용 헬퍼 컬럼
             calc_df['is_win'] = calc_df['결과'].apply(lambda x: 1 if x == '승' else 0)
             calc_df['is_loss'] = calc_df['결과'].apply(lambda x: 1 if x == '패' else 0)
             calc_df['is_1st'] = calc_df['선후공'].apply(lambda x: 1 if x == '선' else 0)
             calc_df['is_2nd'] = calc_df['선후공'].apply(lambda x: 1 if x == '후' else 0)
             calc_df['win_1st'] = ((calc_df['is_1st'] == 1) & (calc_df['is_win'] == 1)).astype(int)
             calc_df['win_2nd'] = ((calc_df['is_2nd'] == 1) & (calc_df['is_win'] == 1)).astype(int)
-            # 아키타입이 입력되었는지 확인 (빈 문자열이 아니면 1, 아니면 0)
             calc_df['has_arch'] = calc_df['아키타입'].apply(lambda x: 1 if str(x).strip() != "" else 0)
 
-            # --- 1. [상단] 전체 데이터 요약 ---
-            st.markdown('<div class="analysis-wrapper">', unsafe_allow_html=True)
-            st.markdown(render_styled_table("Overall Data", calc_df), unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+            # --- 레이아웃 분할: 좌측(요약 표들) | 우측(전체 매치업 리스트) ---
+            col_left, col_right = st.columns([1, 2])
 
-            # --- 2. [중단] 내 덱 선택 섹션 ---
-            st.subheader("🗂️ 내 덱별 상세 분석")
-            sel_my = st.selectbox("분석할 내 덱 선택", st.session_state.metadata["my_decks"], index=0)
-            
-            my_df = calc_df[calc_df['내 덱'] == sel_my].copy()
-
-            if my_df.empty:
-                st.info(f"'{sel_my}' 덱으로 기록된 경기 데이터가 없습니다.")
-            else:
-                # --- 3. [하단] 상대 덱별 종합 통계 표 ---
-                agg = my_df.groupby('상대 덱').agg({
-                    '결과': 'count',
-                    'is_win': 'sum',
-                    'is_loss': 'sum',
-                    'is_1st': 'sum',
-                    'win_1st': 'sum',
-                    'is_2nd': 'sum',
-                    'win_2nd': 'sum',
-                    'has_arch': 'sum'  # 아키타입이 기록된 횟수 합계
-                }).rename(columns={'결과': 'Total', 'is_win': 'W', 'is_loss': 'L'})
-
-                total_m = agg['Total'].sum()
-                agg['W%'] = (agg['W'] / agg['Total'] * 100)
-                agg['1st W%'] = (agg['win_1st'] / agg['is_1st'] * 100)
-                agg['2nd W%'] = (agg['win_2nd'] / agg['is_2nd'] * 100)
-                agg['Share'] = (agg['Total'] / total_m * 100)
+            with col_left:
+                # 1. Overall Data
+                st.markdown(render_styled_table("Overall Data", calc_df), unsafe_allow_html=True)
                 
-                # [수정 로직] Plus Arch: 해당 덱과의 경기 중 아키타입을 선택한 비율
-                agg['Plus Arch'] = (agg['has_arch'] / agg['Total'] * 100)
+                # 2. 내 덱별 승률 (선택 가능)
+                st.write("---")
+                st.subheader("내 덱별 승률")
+                sel_my_single = st.selectbox("내 덱 선택", st.session_state.metadata["my_decks"], key="sel_my_single")
+                my_single_df = calc_df[calc_df['내 덱'] == sel_my_single]
+                st.markdown(render_styled_table(f"Result: {sel_my_single}", my_single_df), unsafe_allow_html=True)
 
-                agg = agg.sort_values(by='Total', ascending=False)
-
-                # --- 전체 합계(Total Row) 계산 ---
-                t_win = agg['W'].sum()
-                t_loss = agg['L'].sum()
-                t_1st_cnt = agg['is_1st'].sum()
-                t_1st_win = agg['win_1st'].sum()
-                t_2nd_cnt = agg['is_2nd'].sum()
-                t_2nd_win = agg['win_2nd'].sum()
-                t_arch_cnt = agg['has_arch'].sum()
-
-                headers = ['Matchup', 'Total', 'W', 'L', 'W%', '1st W%', '2nd W%', 'Share', 'Plus Arch']
-                html = '<table class="styled-table" style="width:100%;">'
-                html += '<tr>' + ''.join(f'<th>{h}</th>' for h in headers) + '</tr>'
-
-                # Total 행
-                html += f'<tr style="background-color: #fff2cc; font-weight: bold;">'
-                html += f'<td>Total</td><td>{total_m}</td>'
-                html += f'<td class="win-val">{t_win}</td><td class="loss-val">{t_loss}</td>'
-                html += f'<td>{(t_win/total_m*100):.2f}%</td>'
-                html += f'<td>{(t_1st_win/t_1st_cnt*100 if t_1st_cnt>0 else 0):.2f}%</td>'
-                html += f'<td>{(t_2nd_win/t_2nd_cnt*100 if t_2nd_cnt>0 else 0):.2f}%</td>'
-                html += f'<td>100.00%</td>'
-                html += f'<td>{(t_arch_cnt/total_m*100):.2f}%</td></tr>'
-
-                # 개별 덱 행
-                for deck_name, row in agg.iterrows():
-                    html += '<tr>'
-                    html += f'<td>{deck_name}</td>'
-                    html += f'<td>{int(row["Total"])}</td>'
-                    html += f'<td class="win-val">{int(row["W"])}</td>'
-                    html += f'<td class="loss-val">{int(row["L"])}</td>'
-                    html += f'<td>{row["W%"]:.2f}%</td>'
-                    
-                    # 선/후공 기록이 없는 경우 처리
-                    html += f'<td>{row["1st W%"]:.2f}%</td>' if pd.notnull(row["1st W%"]) else '<td>-</td>'
-                    html += f'<td>{row["2nd W%"]:.2f}%</td>' if pd.notnull(row["2nd W%"]) else '<td>-</td>'
-                    
-                    html += f'<td>{row["Share"]:.2f}%</td>'
-                    html += f'<td>{row["Plus Arch"]:.2f}%</td>'
-                    html += '</tr>'
-                
-                html += '</table>'
-                st.markdown(html, unsafe_allow_html=True)
-
-                # --- 4. 특정 매치업 상세 데이터 ---
-                st.divider()
-                st.subheader("🔍 특정 매치업 상세 데이터")
+                # 3. 특정 매치업 상세 (내 덱 & 상대 덱 선택)
+                st.write("---")
+                st.subheader("상대 덱별 승률")
                 c1, c2 = st.columns(2)
-                with c1: 
-                    target_opp = st.selectbox("상대 덱 선택", st.session_state.metadata["opp_decks"], key="detail_opp")
+                with c1: m_my = st.selectbox("Use.Deck", st.session_state.metadata["my_decks"], key="m_my_detail")
+                with c2: m_opp = st.selectbox("Opp.Deck", st.session_state.metadata["opp_decks"], key="m_opp_detail")
                 
-                detail_df = my_df[my_df['상대 덱'] == target_opp]
-                st.markdown('<div class="analysis-wrapper">', unsafe_allow_html=True)
-                st.markdown(render_styled_table(f"{sel_my} vs {target_opp}", detail_df), unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-    else:
-        st.info("기록된 데이터가 없습니다.")
+                matchup_df = calc_df[(calc_df['내 덱'] == m_my) & (calc_df['상대 덱'] == m_opp)]
+                st.markdown(render_styled_table(f"{m_my} vs {m_opp}", matchup_df), unsafe_allow_html=True)
 
+            with col_right:
+                # 4. 오른쪽 큰 표: Opponent Deck Statistics (Matchup 리스트)
+                st.subheader("📊 Opponent Deck Statistics")
+                
+                # 현재 '내 덱별 승률'에서 선택된 덱(sel_my_single)을 기준으로 오른쪽 표를 필터링
+                target_df = calc_df[calc_df['내 덱'] == sel_my_single].copy()
+                
+                if target_df.empty:
+                    st.info(f"'{sel_my_single}' 덱의 매치업 데이터가 없습니다.")
+                else:
+                    # 그룹화 계산
+                    agg = target_df.groupby('상대 덱').agg({
+                        '결과': 'count',
+                        'is_win': 'sum',
+                        'is_loss': 'sum',
+                        'is_1st': 'sum',
+                        'win_1st': 'sum',
+                        'is_2nd': 'sum',
+                        'win_2nd': 'sum',
+                        'has_arch': 'sum'
+                    }).rename(columns={'결과': 'Total', 'is_win': 'W', 'is_loss': 'L'})
+
+                    total_m = agg['Total'].sum()
+                    agg['W%'] = (agg['W'] / agg['Total'] * 100)
+                    agg['1st W%'] = (agg['win_1st'] / agg['is_1st'] * 100)
+                    agg['2nd W%'] = (agg['win_2nd'] / agg['is_2nd'] * 100)
+                    agg['Share'] = (agg['Total'] / total_m * 100)
+                    agg['Plus Arch'] = (agg['has_arch'] / agg['Total'] * 100)
+
+                    agg = agg.sort_values(by='Total', ascending=False)
+
+                    # --- 테이블 렌더링 ---
+                    headers = ['Matchup', 'Total', 'W', 'L', 'W%', '1st W%', '2nd W%', 'Share', 'Plus Arch']
+                    html = '<table class="styled-table" style="width:100%;">'
+                    html += '<tr>' + ''.join(f'<th>{h}</th>' for h in headers) + '</tr>'
+
+                    # Total 행 (상단 고정)
+                    t_win, t_loss = agg['W'].sum(), agg['L'].sum()
+                    t_1st, t_1st_w = agg['is_1st'].sum(), agg['win_1st'].sum()
+                    t_2nd, t_2nd_w = agg['is_2nd'].sum(), agg['win_2nd'].sum()
+                    t_arch = agg['has_arch'].sum()
+
+                    html += f'<tr style="background-color: #fff2cc; font-weight: bold;">'
+                    html += f'<td>Total</td><td>{total_m}</td>'
+                    html += f'<td class="win-val">{t_win}</td><td class="loss-val">{t_loss}</td>'
+                    html += f'<td>{(t_win/total_m*100):.2f}%</td>'
+                    html += f'<td>{(t_1st_w/t_1st*100 if t_1st>0 else 0):.2f}%</td>'
+                    html += f'<td>{(t_2nd_w/t_2nd_w*100 if t_2nd>0 else 0):.2f}%</td>'
+                    html += f'<td>100.00%</td><td>{(t_arch/total_m*100):.2f}%</td></tr>'
+
+                    # 데이터 행
+                    for deck_name, row in agg.iterrows():
+                        html += '<tr>'
+                        html += f'<td>{deck_name}</td>'
+                        html += f'<td>{int(row["Total"])}</td>'
+                        html += f'<td class="win-val">{int(row["W"])}</td>'
+                        html += f'<td class="loss-val">{int(row["L"])}</td>'
+                        html += f'<td>{row["W%"]:.2f}%</td>'
+                        html += f'<td>{row["1st W%"]:.2f}%</td>' if pd.notnull(row["1st W%"]) else '<td>-</td>'
+                        html += f'<td>{row["2nd W%"]:.2f}%</td>' if pd.notnull(row["2nd W%"]) else '<td>-</td>'
+                        html += f'<td>{row["Share"]:.2f}%</td>'
+                        html += f'<td>{row["Plus Arch"]:.2f}%</td>'
+                        html += '</tr>'
+                    
+                    html += '</table>'
+                    st.markdown(html, unsafe_allow_html=True)
+
+    else:
+        st.info("데이터가 없습니다. Record 페이지에서 기록을 추가해주세요.")
 else:
     st.title("⚙️ Setting")
     meta = st.session_state.metadata

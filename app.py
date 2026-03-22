@@ -7,21 +7,80 @@ import json
 RECORD_FILE = 'yugioh_records.csv'
 META_FILE = 'metadata_config.json'
 
-st.set_page_config(page_title="YGO Rating Analysis", layout="wide")
+st.set_page_config(page_title="YGO Match Tracker", layout="wide")
 
-# --- 2. [디자인] 인덱스/아이콘 박멸 및 분석 레이아웃 CSS ---
+# --- 2. [핵심 수정] 기록 페이지 전용 이미지 박멸 및 색상 적용 CSS ---
 st.markdown("""
     <style>
-    /* [기록 페이지] 시스템 인덱스 열(0,1,2...) 및 편집 아이콘 완전 숨김 */
+    /* 1. 시스템 인덱스 열(0,1,2...) 및 편집 아이콘 완전 숨김 (박멸 유지) */
     [data-testid="stTableIdxColumn"] { display: none !important; width: 0px !important; }
-    th.col_heading.level0.index_name { display: none !important; }
     
-    /* NO. 칸의 연필 아이콘과 줄 3개 핸들 투명화 */
+    /* 2. NO. 칸의 연필 아이콘과 줄 3개 핸들 투명화 */
     [data-testid="stDataFrameResizable"] div[role="grid"] div[role="row"] div:first-child svg {
         display: none !important;
     }
 
-    /* [분석 페이지] 왼쪽 1/3 너비 및 테이블 디자인 */
+    /* 3. 컬럼별 글자/배경 색상 정의 (핵심 로직 - 이미지 완벽 재현) */
+    
+    /* [기록 페이지 헤더] 글자 굵게 */
+    div.row-widget.stDataFrame [data-testid="stTableIdxColumn"]+th {
+        font-weight: bold;
+    }
+
+    /* [NO. (B열) - 기본(검은색) 정렬 최적화] */
+    div.row-widget.stDataFrame div[role="grid"] div[role="row"] div:nth-child(1) {
+        text-align: center !important;
+        color: #31333F !important;
+    }
+
+    /* [날짜 (C열) - 연한 회색 배경] */
+    div.row-widget.stDataFrame div[role="grid"] div[role="row"] div:nth-child(2) {
+        background-color: #f4f4f4 !important;
+        text-align: center !important;
+    }
+
+    /* [선후공 (D열) - 선:파란색, 후:빨간색] */
+    div.row-widget.stDataFrame div[role="grid"] div[role="row"] div:nth-child(3):contains("선") { color: #0000ff !important; font-weight: bold; text-align: center !important; }
+    div.row-widget.stDataFrame div[role="grid"] div[role="row"] div:nth-child(3):contains("후") { color: #ff0000 !important; font-weight: bold; text-align: center !important; }
+
+    /* [결과 (E열) - 승:파란색, 패:빨간색] */
+    div.row-widget.stDataFrame div[role="grid"] div[role="row"] div:nth-child(4):contains("승") { color: #0000ff !important; font-weight: bold; text-align: center !important; }
+    div.row-widget.stDataFrame div[role="grid"] div[role="row"] div:nth-child(4):contains("패") { color: #ff0000 !important; font-weight: bold; text-align: center !important; }
+
+    /* [세트 전적 (F열) - 승리케이스:파란색, 패배케이스:빨간색] */
+    /* 승리 케이스 */
+    div.row-widget.stDataFrame div[role="grid"] div[role="row"] div:nth-child(5):contains("OO") { color: #0000ff !important; font-weight: bold; text-align: center !important; }
+    div.row-widget.stDataFrame div[role="grid"] div[role="row"] div:nth-child(5):contains("OXO") { color: #0000ff !important; font-weight: bold; text-align: center !important; }
+    div.row-widget.stDataFrame div[role="grid"] div[role="row"] div:nth-child(5):contains("XOO") { color: #0000ff !important; font-weight: bold; text-align: center !important; }
+    /* 패배 케이스 */
+    div.row-widget.stDataFrame div[role="grid"] div[role="row"] div:nth-child(5):contains("XX") { color: #ff0000 !important; font-weight: bold; text-align: center !important; }
+    div.row-widget.stDataFrame div[role="grid"] div[role="row"] div:nth-child(5):contains("XOX") { color: #ff0000 !important; font-weight: bold; text-align: center !important; }
+    div.row-widget.stDataFrame div[role="grid"] div[role="row"] div:nth-child(5):contains("OXX") { color: #ff0000 !important; font-weight: bold; text-align: center !important; }
+
+    /* [나머지 정보 (G~J열) - 검은색 정렬] */
+    div.row-widget.stDataFrame div[role="grid"] div[role="row"] div:nth-child(n+6):nth-child(-n+10) {
+        text-align: center !important;
+        color: #31333F !important;
+    }
+
+    /* [브릭 (K열) - 회색 체크박스] */
+    div.row-widget.stDataFrame div[role="grid"] div[role="row"] div:nth-child(11) input[type="checkbox"] {
+        accent-color: #999999 !important; /* 회색 */
+    }
+
+    /* [실수 (L열) - 빨간색 체크박스] */
+    div.row-widget.stDataFrame div[role="grid"] div[role="row"] div:nth-child(12) input[type="checkbox"] {
+        accent-color: #ff0000 !important; /* 빨간색 */
+    }
+    
+    /* [비고 (M열) - 왼쪽 정렬 및 얇은 글씨] */
+    div.row-widget.stDataFrame div[role="grid"] div[role="row"] div:nth-child(13) {
+        text-align: left !important;
+        color: #31333F !important;
+        font-weight: normal !important;
+    }
+
+    /* [분석 페이지 레이아웃 (기존 유지)] */
     .analysis-wrapper { width: 33%; margin-left: 0; }
     .styled-table { 
         width: 100%; font-size: 14px; border-collapse: collapse; 
@@ -35,13 +94,11 @@ st.markdown("""
     }
     .win-val { color: #0000ff !important; font-weight: bold; }
     .loss-val { color: #ff0000 !important; font-weight: bold; }
-    
-    /* 드롭다운 스타일 최적화 */
     div[data-testid="stSelectbox"] { width: 100% !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. 데이터 로직 ---
+# --- 3. 데이터 로직 (생략 - 기존 코드 유지) ---
 def load_metadata():
     default_meta = {
         "my_decks": ["KT", "Ennea", "Maliss", "Tenpai"],
@@ -61,6 +118,7 @@ def load_metadata():
     return default_meta
 
 def load_records():
+    # 이미지와 동일한 순서의 컬럼 정의
     cols = ["NO.", "날짜", "선후공", "결과", "세트 전적", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
     if os.path.exists(RECORD_FILE):
         try:
@@ -74,24 +132,22 @@ def load_records():
     return pd.DataFrame(columns=cols)
 
 def save_data(df):
+    # 인덱스 없이 저장
     df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
     st.session_state.df = df.reset_index(drop=True)
 
-# 분석 표 렌더링 함수
+# 분석 표 렌더링 함수 (기존 유지)
 def render_styled_table(title, target_df):
     calc_df = target_df[target_df['결과'].isin(['승', '패'])]
     total = len(calc_df)
     if total == 0:
         return f'<table class="styled-table"><tr><th>{title}</th></tr><tr><td>데이터 없음</td></tr></table>'
-    
     wins = len(calc_df[calc_df['결과'] == '승'])
     losses = len(calc_df[calc_df['결과'] == '패'])
     win_rate = (wins / total * 100)
-    
     f_df, s_df = calc_df[calc_df['선후공'] == '선'], calc_df[calc_df['선후공'] == '후']
     f_wins = len(f_df[f_df['결과'] == '승'])
     s_wins = len(s_df[s_df['결과'] == '승'])
-    
     return f"""
         <table class="styled-table">
             <tr><th colspan="5">{title}</th></tr>
@@ -115,7 +171,7 @@ if 'df' not in st.session_state:
 page = st.sidebar.radio("메뉴", ["📊 기록", "📈 분석", "⚙️ 설정"])
 
 if page == "📊 기록":
-    st.title("📊 전적 기록")
+    st.title("📊 Match Records")
     if st.button("➕ 새로운 경기 추가"):
         meta = st.session_state.metadata
         new_row = pd.DataFrame([{
@@ -129,23 +185,31 @@ if page == "📊 기록":
         save_data(st.session_state.df)
         st.rerun()
 
+    # 데이터 에디터 실행 (디자인 및 색상 CSS 적용)
     edited_df = st.data_editor(
-        st.session_state.df, use_container_width=True, num_rows="dynamic", hide_index=True, key="ygo_editor_v7",
+        st.session_state.df, 
+        use_container_width=True, 
+        num_rows="dynamic", 
+        hide_index=True, # 시스템 인덱스 숨김
+        key="ygo_editor_styled",
         column_config={
-            "NO.": st.column_config.TextColumn("NO."),
-            "날짜": st.column_config.TextColumn("날짜"),
-            "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"]),
-            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"]),
-            "세트 전적": st.column_config.SelectboxColumn("세트 전적", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"]),
+            "NO.": st.column_config.TextColumn("NO.", width="small"),
+            "날짜": st.column_config.TextColumn("날짜", width="small"),
+            "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], width="small"),
+            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width="small"),
+            # 세트 전적 드롭다운 복구 및 옵션 지정
+            "세트 전적": st.column_config.SelectboxColumn("세트 전적", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width="small"),
             "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata.get("my_decks", [])),
             "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata.get("opp_decks", [])),
             "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata.get("archetypes", [])),
             "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.metadata.get("win_loss_reasons", [])),
             "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata.get("target_cards", [])),
-            "브릭": st.column_config.CheckboxColumn("브릭"), "실수": st.column_config.CheckboxColumn("실수"),
-            "비고": st.column_config.TextColumn("비고")
+            "브릭": st.column_config.CheckboxColumn("브릭", width="small"),
+            "실수": st.column_config.CheckboxColumn("실수", width="small"),
+            "비고": st.column_config.TextColumn("비고", width="large")
         }
     )
+
     if not edited_df.equals(st.session_state.df):
         save_data(edited_df)
         st.rerun()

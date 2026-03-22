@@ -8,37 +8,35 @@ META_FILE = "metadata_config.json"
 
 st.set_page_config(page_title="26.03 Rating", layout="wide")
 
+# ---------------- CSS ----------------
+
 st.markdown("""
 <style>
 
 [data-testid="stTableIdxColumn"] {display:none;}
-th.col_heading.level0.index_name {display:none;}
-
-.analysis-wrapper{
-    width:420px;
-}
 
 .styled-table{
-    width:100%;
+    width:420px;
     border-collapse:collapse;
     font-size:13px;
     margin-bottom:30px;
 }
 
 .styled-table th{
-    background:#f9cb9c;
+    background:#e9c35b;
     padding:6px;
-    border:1px solid #ddd;
+    border:1px solid #bbb;
 }
 
 .styled-table td{
+    background:#f3f3f3;
     padding:6px;
-    border:1px solid #ddd;
+    border:1px solid #ccc;
     text-align:center;
 }
 
 .win-val{
-    color:#0000ff;
+    color:#0050ff;
     font-weight:bold;
 }
 
@@ -52,79 +50,37 @@ th.col_heading.level0.index_name {display:none;}
 
 # ---------------- 데이터 ----------------
 
-def load_metadata():
-
-    default = {
-        "my_decks": ["KT","Ennea","Maliss","Tenpai"],
-        "opp_decks": ["KT","Ennea","Maliss","Tenpai","Labrynth","Branded"],
-        "archetypes": ["운영","전개","미드레인지","함떡","기타"],
-        "win_loss_reasons": ["상대 패","자신 실력","특정 카드","핸드 말림","기타"],
-        "target_cards": ["증식의 G","하루 우라라","무한포영","니비루","드롤"]
-    }
-
-    if os.path.exists(META_FILE):
-        with open(META_FILE,"r",encoding="utf-8") as f:
-            try:
-                data=json.load(f)
-                for k in default:
-                    if k not in data:
-                        data[k]=default[k]
-                return data
-            except:
-                return default
-
-    return default
-
-
 def load_records():
 
     cols=[
-        "NO.","날짜","선후공","결과",
-        "세트 전적","점수",
-        "내 덱","상대 덱","아키타입",
-        "승패 요인","특정 카드",
-        "브릭","실수","비고"
+        "날짜","선후공","결과",
+        "내 덱","상대 덱"
     ]
 
     if os.path.exists(RECORD_FILE):
-
-        try:
-            df=pd.read_csv(RECORD_FILE,dtype=str).fillna("")
-
-            for c in cols:
-                if c not in df.columns:
-                    df[c]=""
-
-            for c in ["브릭","실수"]:
-                df[c]=df[c].apply(lambda x:True if str(x).lower() in ["true","1"] else False)
-
-            return df[cols].reset_index(drop=True)
-
-        except:
-            pass
+        df=pd.read_csv(RECORD_FILE)
+        return df
 
     return pd.DataFrame(columns=cols)
 
 
-def save_data(df):
+def save_records(df):
 
-    df.to_csv(RECORD_FILE,index=False,encoding="utf-8-sig")
-    st.session_state.df=df.reset_index(drop=True)
+    df.to_csv(RECORD_FILE,index=False)
 
-# ---------------- 분석 테이블 ----------------
 
-def render_styled_table(title,df):
+# ---------------- 분석 계산 ----------------
+
+def calc_stats(df):
 
     calc=df[df["결과"].isin(["승","패"])]
-    total=len(calc)
 
-    if total==0:
-        return f"<table class='styled-table'><tr><th>{title}</th></tr><tr><td>데이터 없음</td></tr></table>"
+    total=len(calc)
 
     w=len(calc[calc["결과"]=="승"])
     l=len(calc[calc["결과"]=="패"])
 
-    win_rate=(w/total*100)
+    win_rate=(w/total*100) if total else 0
 
     first=calc[calc["선후공"]=="선"]
     second=calc[calc["선후공"]=="후"]
@@ -138,389 +94,174 @@ def render_styled_table(title,df):
     s_w=len(second[second["결과"]=="승"])
     s_l=len(second[second["결과"]=="패"])
 
+    f_rate=(f_total/total*100) if total else 0
+    s_rate=(s_total/total*100) if total else 0
+
+    f_wrate=(f_w/f_total*100) if f_total else 0
+    f_lrate=(f_l/f_total*100) if f_total else 0
+
+    s_wrate=(s_w/s_total*100) if s_total else 0
+    s_lrate=(s_l/s_total*100) if s_total else 0
+
+    return {
+        "total":total,
+        "w":w,
+        "l":l,
+        "win_rate":win_rate,
+        "f_total":f_total,
+        "s_total":s_total,
+        "f_rate":f_rate,
+        "s_rate":s_rate,
+        "f_w":f_w,
+        "f_l":f_l,
+        "s_w":s_w,
+        "s_l":s_l,
+        "f_wrate":f_wrate,
+        "f_lrate":f_lrate,
+        "s_wrate":s_wrate,
+        "s_lrate":s_lrate
+    }
+
+
+# ---------------- 표 생성 ----------------
+
+def render_table(title,stats):
+
     return f"""
+
 <table class='styled-table'>
 
-<tr><th colspan=7>{title}</th></tr>
+<tr><th colspan=4>{title}</th></tr>
 
 <tr>
 <th>Games</th>
-<th>WinRate</th>
+<th>Win Rate</th>
 <th>W</th>
 <th>L</th>
+</tr>
+
+<tr>
+<td>{stats["total"]}</td>
+<td>{stats["win_rate"]:.2f}%</td>
+<td class='win-val'>{stats["w"]}</td>
+<td class='loss-val'>{stats["l"]}</td>
+</tr>
+
+<tr>
 <th>1st</th>
 <th>2nd</th>
-<th>-</th>
+<th>1st Rate</th>
+<th>2nd Rate</th>
 </tr>
 
 <tr>
-<td>{total}</td>
-<td>{win_rate:.2f}%</td>
-<td class='win-val'>{w}</td>
-<td class='loss-val'>{l}</td>
-<td>{f_total}</td>
-<td>{s_total}</td>
-<td>-</td>
+<td>{stats["f_total"]}</td>
+<td>{stats["s_total"]}</td>
+<td>{stats["f_rate"]:.2f}%</td>
+<td>{stats["s_rate"]:.2f}%</td>
 </tr>
 
 <tr>
-<th>1st W</th>
-<th>1st L</th>
+<th>1st Win</th>
+<th>1st Lose</th>
 <th>1st W%</th>
-<th>2nd W</th>
-<th>2nd L</th>
-<th>2nd W%</th>
-<th>-</th>
+<th>1st L%</th>
 </tr>
 
 <tr>
-<td class='win-val'>{f_w}</td>
-<td class='loss-val'>{f_l}</td>
-<td>{(f_w/f_total*100 if f_total else 0):.1f}%</td>
-<td class='win-val'>{s_w}</td>
-<td class='loss-val'>{s_l}</td>
-<td>{(s_w/s_total*100 if s_total else 0):.1f}%</td>
-<td>-</td>
+<td class='win-val'>{stats["f_w"]}</td>
+<td class='loss-val'>{stats["f_l"]}</td>
+<td>{stats["f_wrate"]:.2f}%</td>
+<td>{stats["f_lrate"]:.2f}%</td>
+</tr>
+
+<tr>
+<th>2nd Win</th>
+<th>2nd Lose</th>
+<th>2nd W%</th>
+<th>2nd L%</th>
+</tr>
+
+<tr>
+<td class='win-val'>{stats["s_w"]}</td>
+<td class='loss-val'>{stats["s_l"]}</td>
+<td>{stats["s_wrate"]:.2f}%</td>
+<td>{stats["s_lrate"]:.2f}%</td>
 </tr>
 
 </table>
+
 """
 
-# ---------------- Matchup Table ----------------
 
-def create_matchup_table(df):
+# ---------------- 페이지 ----------------
 
-    df=df[df["결과"].isin(["승","패"])]
-    total_games=len(df)
+page=st.sidebar.radio("Menu",["Record","Analysis"])
 
-    rows=[]
-
-    for opp in sorted(df["상대 덱"].unique()):
-
-        sub=df[df["상대 덱"]==opp]
-
-        total=len(sub)
-
-        w=len(sub[sub["결과"]=="승"])
-        l=len(sub[sub["결과"]=="패"])
-
-        win_rate=(w/total*100) if total else 0
-
-        first=sub[sub["선후공"]=="선"]
-        second=sub[sub["선후공"]=="후"]
-
-        first_w=len(first[first["결과"]=="승"])
-        second_w=len(second[second["결과"]=="승"])
-
-        first_rate=(first_w/len(first)*100) if len(first) else 0
-        second_rate=(second_w/len(second)*100) if len(second) else 0
-
-        share=(total/total_games*100) if total_games else 0
-
-        arch=sub["아키타입"].iloc[0] if len(sub)>0 else ""
-
-        rows.append({
-            "Matchup":opp,
-            "Total":total,
-            "W":w,
-            "L":l,
-            "W%":round(win_rate,2),
-            "1stW%":round(first_rate,2),
-            "2ndW%":round(second_rate,2),
-            "Share":round(share,1),
-            "Arch":arch
-        })
-
-    df_out=pd.DataFrame(rows)
-
-    if not df_out.empty:
-        df_out=df_out.sort_values("W%",ascending=False)
-
-    return df_out
-
-# ---------------- 세션 ----------------
-
-if "metadata" not in st.session_state:
-    st.session_state.metadata=load_metadata()
-
-if "df" not in st.session_state:
-    st.session_state.df=load_records()
-
-page=st.sidebar.radio("메뉴",["📊 Record","📈 Analysis","⚙️ Setting"])
+df=load_records()
 
 # ---------------- Record ----------------
 
-if page=="📊 Record":
+if page=="Record":
 
-    st.title("📊 Record")
+    st.title("Record")
 
-    if st.button("➕ 새로운 경기 추가"):
+    new=st.data_editor(df,num_rows="dynamic")
 
-        meta=st.session_state.metadata
+    if st.button("Save"):
+        save_records(new)
+        st.success("Saved")
 
-        new_row=pd.DataFrame([{
-            "NO.":str(len(st.session_state.df)+1),
-            "날짜":pd.Timestamp.now().strftime("%m.%d"),
-            "선후공":"선",
-            "결과":"승",
-            "세트 전적":"OO",
-            "점수":"",
-            "내 덱":meta["my_decks"][0],
-            "상대 덱":meta["opp_decks"][0],
-            "아키타입":meta["archetypes"][0],
-            "승패 요인":meta["win_loss_reasons"][0],
-            "특정 카드":meta["target_cards"][0],
-            "브릭":False,
-            "실수":False,
-            "비고":""
-        }])
-
-        st.session_state.df=pd.concat(
-            [st.session_state.df,new_row],
-            ignore_index=True
-        )
-
-        save_data(st.session_state.df)
-        st.rerun()
-
-    edited=st.data_editor(
-        st.session_state.df,
-        use_container_width=True,
-        hide_index=True
-    )
-
-    if not edited.equals(st.session_state.df):
-
-        save_data(edited)
-        st.rerun()
 
 # ---------------- Analysis ----------------
-
-# ---------------- Analysis ----------------
-
-elif page=="📈 Analysis":
-
-    st.title("📈 Rating Analysis")
-
-    df=load_records()
-
-    if not df.empty:
-
-        st.markdown('<div class="analysis-wrapper">',unsafe_allow_html=True)
-
-        # -------- Overall --------
-
-        calc=df[df["결과"].isin(["승","패"])]
-
-        total=len(calc)
-        w=len(calc[calc["결과"]=="승"])
-        l=len(calc[calc["결과"]=="패"])
-
-        win_rate=(w/total*100) if total else 0
-
-        first=calc[calc["선후공"]=="선"]
-        second=calc[calc["선후공"]=="후"]
-
-        f_total=len(first)
-        s_total=len(second)
-
-        f_w=len(first[first["결과"]=="승"])
-        s_w=len(second[second["결과"]=="승"])
-
-        f_rate=(f_w/f_total*100) if f_total else 0
-        s_rate=(s_w/s_total*100) if s_total else 0
-
-        overall_table=f"""
-        <table class='styled-table'>
-
-        <tr><th colspan=5>Overall</th></tr>
-
-        <tr>
-        <th>Games</th>
-        <th>WinRate</th>
-        <th>W</th>
-        <th>L</th>
-        <th>-</th>
-        </tr>
-
-        <tr>
-        <td>{total}</td>
-        <td>{win_rate:.2f}%</td>
-        <td class='win-val'>{w}</td>
-        <td class='loss-val'>{l}</td>
-        <td>-</td>
-        </tr>
-
-        <tr>
-        <th>1st</th>
-        <th>2nd</th>
-        <th>-</th>
-        <th>-</th>
-        <th>-</th>
-        </tr>
-
-        <tr>
-        <td>{f_total}</td>
-        <td>{s_total}</td>
-        <td>-</td>
-        <td>-</td>
-        <td>-</td>
-        </tr>
-
-        <tr>
-        <th>1st W%</th>
-        <th>2nd W%</th>
-        <th>-</th>
-        <th>-</th>
-        <th>-</th>
-        </tr>
-
-        <tr>
-        <td>{f_rate:.1f}%</td>
-        <td>{s_rate:.1f}%</td>
-        <td>-</td>
-        <td>-</td>
-        <td>-</td>
-        </tr>
-
-        </table>
-        """
-
-        st.markdown(overall_table,unsafe_allow_html=True)
-
-        # -------- 덱 승률 --------
-
-        st.subheader("덱 승률")
-
-        my=st.selectbox("내 덱",st.session_state.metadata["my_decks"])
-
-        deck_df=df[df["내 덱"]==my]
-        calc=deck_df[deck_df["결과"].isin(["승","패"])]
-
-        total=len(calc)
-        w=len(calc[calc["결과"]=="승"])
-        l=len(calc[calc["결과"]=="패"])
-
-        win_rate=(w/total*100) if total else 0
-
-        first=calc[calc["선후공"]=="선"]
-        second=calc[calc["선후공"]=="후"]
-
-        f_total=len(first)
-        s_total=len(second)
-
-        f_w=len(first[first["결과"]=="승"])
-        s_w=len(second[second["결과"]=="승"])
-
-        f_rate=(f_w/f_total*100) if f_total else 0
-        s_rate=(s_w/s_total*100) if s_total else 0
-
-        deck_table=f"""
-        <table class='styled-table'>
-
-        <tr><th colspan=5>{my}</th></tr>
-
-        <tr>
-        <th>Games</th>
-        <th>WinRate</th>
-        <th>W</th>
-        <th>L</th>
-        <th>-</th>
-        </tr>
-
-        <tr>
-        <td>{total}</td>
-        <td>{win_rate:.2f}%</td>
-        <td class='win-val'>{w}</td>
-        <td class='loss-val'>{l}</td>
-        <td>-</td>
-        </tr>
-
-        <tr>
-        <th>1st</th>
-        <th>2nd</th>
-        <th>-</th>
-        <th>-</th>
-        <th>-</th>
-        </tr>
-
-        <tr>
-        <td>{f_total}</td>
-        <td>{s_total}</td>
-        <td>-</td>
-        <td>-</td>
-        <td>-</td>
-        </tr>
-
-        <tr>
-        <th>1st W%</th>
-        <th>2nd W%</th>
-        <th>-</th>
-        <th>-</th>
-        <th>-</th>
-        </tr>
-
-        <tr>
-        <td>{f_rate:.1f}%</td>
-        <td>{s_rate:.1f}%</td>
-        <td>-</td>
-        <td>-</td>
-        <td>-</td>
-        </tr>
-
-        </table>
-        """
-
-        st.markdown(deck_table,unsafe_allow_html=True)
-
-        # -------- Matchup Table --------
-
-        st.subheader("Matchup Table")
-
-        deck_filter=st.selectbox(
-            "기준 덱",
-            st.session_state.metadata["my_decks"],
-            key="match"
-        )
-
-        df_match=df[df["내 덱"]==deck_filter]
-
-        table=create_matchup_table(df_match)
-
-        st.dataframe(
-            table,
-            use_container_width=True,
-            hide_index=True
-        )
-
-        st.markdown('</div>',unsafe_allow_html=True)
-
-# ---------------- Setting ----------------
 
 else:
 
-    st.title("⚙️ Setting")
+    st.title("Analysis")
 
-    meta=st.session_state.metadata
+    if df.empty:
+        st.write("No Data")
+        st.stop()
 
-    my=st.text_area("내 덱",",".join(meta["my_decks"]))
-    opp=st.text_area("상대 덱",",".join(meta["opp_decks"]))
-    arch=st.text_area("아키타입",",".join(meta["archetypes"]))
-    reason=st.text_area("승패 요인",",".join(meta["win_loss_reasons"]))
-    cards=st.text_area("특정 카드",",".join(meta["target_cards"]))
+    # Overall
 
-    if st.button("저장"):
+    st.markdown(
+        render_table(
+            "Overall Data",
+            calc_stats(df)
+        ),
+        unsafe_allow_html=True
+    )
 
-        st.session_state.metadata={
-            "my_decks":[x.strip() for x in my.split(",") if x.strip()],
-            "opp_decks":[x.strip() for x in opp.split(",") if x.strip()],
-            "archetypes":[x.strip() for x in arch.split(",") if x.strip()],
-            "win_loss_reasons":[x.strip() for x in reason.split(",") if x.strip()],
-            "target_cards":[x.strip() for x in cards.split(",") if x.strip()]
-        }
+    # 덱 선택
 
-        with open(META_FILE,"w",encoding="utf-8") as f:
-            json.dump(st.session_state.metadata,f,ensure_ascii=False,indent=4)
+    my_deck=st.selectbox(
+        "내 덱 선택",
+        sorted(df["내 덱"].unique())
+    )
 
-        st.success("저장 완료")
-        st.rerun()
+    deck_df=df[df["내 덱"]==my_deck]
+
+    st.markdown(
+        render_table(
+            f"{my_deck} 덱별 승률",
+            calc_stats(deck_df)
+        ),
+        unsafe_allow_html=True
+    )
+
+    # 상대 덱별
+
+    st.subheader("상대 덱별 승률")
+
+    for opp in sorted(deck_df["상대 덱"].unique()):
+
+        sub=deck_df[deck_df["상대 덱"]==opp]
+
+        st.markdown(
+            render_table(
+                f"{opp}",
+                calc_stats(sub)
+            ),
+            unsafe_allow_html=True
+        )

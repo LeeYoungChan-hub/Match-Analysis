@@ -1,3 +1,5 @@
+import hashlib
+
 import streamlit as st
 import pandas as pd
 
@@ -33,10 +35,16 @@ def _compact_layout_css() -> None:
         div[data-testid="stElementContainer"] {{ margin-bottom: 0.25rem !important; }}
         /* 표 안 글자만 {CELL_FONT_PX} — 셀 높이·여백 맞춤 */
         [data-testid="stDataFrame"] {{ margin-bottom: 0.15rem !important; font-size: {CELL_FONT_PX} !important; }}
-        [data-testid="stDataFrame"] * {{ line-height: 1.25 !important; font-size: {CELL_FONT_PX} !important; }}
+        [data-testid="stDataFrame"] [role="gridcell"],
+        [data-testid="stDataFrame"] [role="columnheader"],
+        [data-testid="stDataFrame"] [role="gridcell"] input,
+        [data-testid="stDataFrame"] [role="gridcell"] select {{
+            line-height: 1.25 !important;
+            font-size: {CELL_FONT_PX} !important;
+        }}
         [data-testid="stDataFrame"] [role="gridcell"],
         [data-testid="stDataFrame"] [role="columnheader"] {{
-            min-height: 42px !important;
+            min-height: 32px !important;
             padding-top: 6px !important;
             padding-bottom: 6px !important;
             box-sizing: border-box !important;
@@ -190,28 +198,39 @@ def _sanitize_data_for_editor(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def _select_options(core: list[str]) -> list[str]:
+    """드롭다운: 맨 앞에 빈 값(미선택) — 새 행은 사용자가 직접 고르게 둠."""
+    return [""] + [o for o in core if o != ""]
+
+
 def _ensure_selectbox_values(df: pd.DataFrame, col: str, options: list[str]) -> None:
-    """셀렉트 옵션에 없는 값은 첫 옵션으로 맞춤 (빈 문자열·NaN 포함)."""
+    """빈 칸은 비움. 옵션에 없는 값만 빈 문자열로 보정(첫 항목으로 자동 채우지 않음)."""
     if col not in df.columns or not options:
         return
-    default = options[0]
+    allowed = set(_select_options(options))
 
     def _norm(v):
         if v is None or (isinstance(v, float) and pd.isna(v)):
-            return default
+            return ""
         s = str(v).strip()
         if s == "":
-            return default
-        return s if s in options else default
+            return ""
+        return s if s in allowed else ""
 
     df[col] = df[col].map(_norm)
 
 
 def _persist_record_csv(guide: pd.DataFrame, records: pd.DataFrame) -> None:
     merged = pd.concat([guide, records], ignore_index=True)
+    csv_str = merged.to_csv(index=False, encoding="utf-8-sig")
+    sig = hashlib.md5(csv_str.encode("utf-8-sig")).hexdigest()
+    if st.session_state.get("_persist_csv_sig") == sig:
+        return
+    st.session_state._persist_csv_sig = sig
     st.session_state.df = merged
     try:
-        merged.to_csv(FILENAME, index=False, encoding="utf-8-sig")
+        with open(FILENAME, "w", encoding="utf-8-sig") as f:
+            f.write(csv_str)
     except OSError as e:
         st.error(f"CSV 저장 실패: {e}")
 
@@ -253,14 +272,16 @@ with tab_record:
         _ensure_selectbox_values(data_df, col, choices)
 
     st.subheader("📋 가이드 및 통계")
-    # 가이드 행은 체크박스가 아닌 일반 텍스트로 표시되도록 설정
+    # 가이드는 1행만: 이전 실행에서 2행 이상이었으면 위젯 상태만 초기화
+    if st.session_state.pop("_guide_reset_widget", False):
+        st.session_state.pop("guide_stats_one_row", None)
     edited_guide = st.data_editor(
-        guide_df,
+        _single_guide_row(guide_df),
         use_container_width=True,
-        height=118,
+        height=96,
         num_rows="fixed",
         hide_index=True,
-        key="guide_editor",
+        key="guide_stats_one_row",
         column_config={
             "NO.": st.column_config.TextColumn("NO.", disabled=True, width=COL_W_NO_TO_SCORE),
             "날짜": st.column_config.TextColumn("날짜", width=COL_W_NO_TO_SCORE),
@@ -278,26 +299,31 @@ with tab_record:
             "비고": st.column_config.TextColumn("비고"),
         },
     )
+    if len(edited_guide) > 1:
+        st.session_state._guide_reset_widget = True
+        st.rerun()
 
     st.subheader("📝 경기 기록")
+    _n = max(len(data_df), 1)
+    _record_h = min(520, max(200, 72 + _n * 30))
     edited_data = st.data_editor(
         data_df,
         num_rows="dynamic",
         use_container_width=True,
-        height="content",
+        height=int(_record_h),
         key="data_editor",
         column_config={
             "NO.": st.column_config.TextColumn("NO.", width=COL_W_NO_TO_SCORE),
             "날짜": st.column_config.TextColumn("날짜", width=COL_W_NO_TO_SCORE),
-            "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], width=COL_W_NO_TO_SCORE),
-            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width=COL_W_NO_TO_SCORE),
-            "세트": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=COL_W_NO_TO_SCORE),
+            "선후공": st.column_config.SelectboxColumn("선후공", options=_select_options(["선", "후"]), width=COL_W_NO_TO_SCORE),
+            "결과": st.column_config.SelectboxColumn("결과", options=_select_options(["승", "패"]), width=COL_W_NO_TO_SCORE),
+            "세트": st.column_config.SelectboxColumn("세트", options=_select_options(["OO", "OXO", "XOO", "XX", "XOX", "OXX"]), width=COL_W_NO_TO_SCORE),
             "점수": st.column_config.TextColumn("점수", width=COL_W_NO_TO_SCORE),
-            "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.options["내 덱"]),
-            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.options["상대 덱"]),
-            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.options["특정 카드"]),
-            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.options["승패 요인"]),
-            "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.options["아키타입"]),
+            "내 덱": st.column_config.SelectboxColumn("내 덱", options=_select_options(st.session_state.options["내 덱"])),
+            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=_select_options(st.session_state.options["상대 덱"])),
+            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=_select_options(st.session_state.options["특정 카드"])),
+            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=_select_options(st.session_state.options["승패 요인"])),
+            "아키타입": st.column_config.SelectboxColumn("아키타입", options=_select_options(st.session_state.options["아키타입"])),
             "브릭": st.column_config.CheckboxColumn("브릭", default=False),
             "실수": st.column_config.CheckboxColumn("실수", default=False),
             "비고": st.column_config.TextColumn("비고"),

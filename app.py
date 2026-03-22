@@ -3,14 +3,10 @@ import pandas as pd
 import os
 import json
 
-# ---------------- 기본 설정 ----------------
-
 RECORD_FILE = "yugioh_records.csv"
 META_FILE = "metadata_config.json"
 
 st.set_page_config(page_title="26.03 Rating", layout="wide")
-
-# ---------------- CSS ----------------
 
 st.markdown("""
 <style>
@@ -54,7 +50,7 @@ th.col_heading.level0.index_name {display:none;}
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- 데이터 로드 ----------------
+# ---------------- 데이터 ----------------
 
 def load_metadata():
 
@@ -137,18 +133,23 @@ def render_styled_table(title,df):
     s_total=len(second)
 
     f_w=len(first[first["결과"]=="승"])
+    f_l=len(first[first["결과"]=="패"])
+
     s_w=len(second[second["결과"]=="승"])
+    s_l=len(second[second["결과"]=="패"])
 
     return f"""
 <table class='styled-table'>
 
-<tr><th colspan=5>{title}</th></tr>
+<tr><th colspan=7>{title}</th></tr>
 
 <tr>
 <th>Games</th>
 <th>WinRate</th>
 <th>W</th>
 <th>L</th>
+<th>1st</th>
+<th>2nd</th>
 <th>-</th>
 </tr>
 
@@ -157,21 +158,27 @@ def render_styled_table(title,df):
 <td>{win_rate:.2f}%</td>
 <td class='win-val'>{w}</td>
 <td class='loss-val'>{l}</td>
+<td>{f_total}</td>
+<td>{s_total}</td>
 <td>-</td>
 </tr>
 
 <tr>
-<th>1st</th>
-<th>2nd</th>
+<th>1st W</th>
+<th>1st L</th>
 <th>1st W%</th>
+<th>2nd W</th>
+<th>2nd L</th>
 <th>2nd W%</th>
 <th>-</th>
 </tr>
 
 <tr>
-<td>{f_total}</td>
-<td>{s_total}</td>
+<td class='win-val'>{f_w}</td>
+<td class='loss-val'>{f_l}</td>
 <td>{(f_w/f_total*100 if f_total else 0):.1f}%</td>
+<td class='win-val'>{s_w}</td>
+<td class='loss-val'>{s_l}</td>
 <td>{(s_w/s_total*100 if s_total else 0):.1f}%</td>
 <td>-</td>
 </tr>
@@ -193,6 +200,7 @@ def create_matchup_table(df):
         sub=df[df["상대 덱"]==opp]
 
         total=len(sub)
+
         w=len(sub[sub["결과"]=="승"])
         l=len(sub[sub["결과"]=="패"])
 
@@ -230,7 +238,7 @@ def create_matchup_table(df):
 
     return df_out
 
-# ---------------- 세션 초기화 ----------------
+# ---------------- 세션 ----------------
 
 if "metadata" not in st.session_state:
     st.session_state.metadata=load_metadata()

@@ -353,10 +353,14 @@ elif page == "📈 Analysis":
 
         st.markdown('<div class="analysis-wrapper">', unsafe_allow_html=True)
 
+        # ---------------- Overall ----------------
+
         st.markdown(
             render_styled_table("Overall Data", df_ana),
             unsafe_allow_html=True
         )
+
+        # ---------------- Deck Winrate ----------------
 
         st.subheader("덱별 승률")
 
@@ -366,15 +370,16 @@ elif page == "📈 Analysis":
             label_visibility="collapsed"
         )
 
+        deck_df = df_ana[df_ana['내 덱'] == sel_my]
+
         st.markdown(
-            render_styled_table(
-                sel_my,
-                df_ana[df_ana['내 덱'] == sel_my]
-            ),
+            render_styled_table(sel_my, deck_df),
             unsafe_allow_html=True
         )
 
-        st.subheader("상대 덱별 승률")
+        # ---------------- Matchup Analysis ----------------
+
+        st.subheader("특정 매치업 분석")
 
         c1, c2 = st.columns(2)
 
@@ -405,8 +410,27 @@ elif page == "📈 Analysis":
             unsafe_allow_html=True
         )
 
-        st.markdown('</div>', unsafe_allow_html=True)
+        # ---------------- Matchup Table ----------------
 
+        st.subheader("Matchup Table")
+
+        deck_filter = st.selectbox(
+            "Matchup 기준 덱",
+            st.session_state.metadata["my_decks"],
+            key="matchup_deck"
+        )
+
+        df_match = df_ana[df_ana["내 덱"] == deck_filter]
+
+        matchup_table = create_matchup_table(df_match)
+
+        st.dataframe(
+            matchup_table,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------- Setting ----------------
 

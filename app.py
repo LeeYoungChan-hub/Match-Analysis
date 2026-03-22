@@ -3,133 +3,132 @@ import pandas as pd
 import os
 import json
 
-RECORD_FILE="yugioh_records.csv"
-META_FILE="metadata_config.json"
+# ---------------- 기본 설정 ----------------
 
-st.set_page_config(page_title="26.03 Rating",layout="wide")
+RECORD_FILE = "yugioh_records.csv"
+META_FILE = "metadata_config.json"
+
+st.set_page_config(page_title="26.03 Rating", layout="wide")
 
 # ---------------- CSS ----------------
 
 st.markdown("""
 <style>
 
-.win{
-color:#0050ff;
-font-weight:bold;
+[data-testid="stTableIdxColumn"] {display:none;}
+th.col_heading.level0.index_name {display:none;}
+
+.analysis-wrapper{
+    width:420px;
 }
 
-.loss{
-color:#ff0000;
-font-weight:bold;
+.styled-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+    margin-bottom:30px;
 }
 
-table{
-border-collapse:collapse;
-width:420px;
-margin-bottom:30px;
+.styled-table th{
+    background:#f9cb9c;
+    padding:6px;
+    border:1px solid #ddd;
 }
 
-th{
-background:#e6c56c;
-border:1px solid #bbb;
-padding:6px;
-text-align:center;
+.styled-table td{
+    padding:6px;
+    border:1px solid #ddd;
+    text-align:center;
 }
 
-td{
-background:#f4f4f4;
-border:1px solid #ccc;
-padding:6px;
-text-align:center;
+.win-val{
+    color:#0000ff;
+    font-weight:bold;
+}
+
+.loss-val{
+    color:#ff0000;
+    font-weight:bold;
 }
 
 </style>
-""",unsafe_allow_html=True)
-
-# ---------------- 기본 데이터 ----------------
-
-meta_default={
-"my_decks":[],
-"opp_decks":[],
-"archetypes":[],
-"reasons":[],
-"cards":[]
-}
-
-set_record=[
-"OO","OXO","XOO",
-"XX","XOX","OXX"
-]
+""", unsafe_allow_html=True)
 
 # ---------------- 데이터 로드 ----------------
+
+def load_metadata():
+
+    default = {
+        "my_decks": ["KT","Ennea","Maliss","Tenpai"],
+        "opp_decks": ["KT","Ennea","Maliss","Tenpai","Labrynth","Branded"],
+        "archetypes": ["운영","전개","미드레인지","함떡","기타"],
+        "win_loss_reasons": ["상대 패","자신 실력","특정 카드","핸드 말림","기타"],
+        "target_cards": ["증식의 G","하루 우라라","무한포영","니비루","드롤"]
+    }
+
+    if os.path.exists(META_FILE):
+        with open(META_FILE,"r",encoding="utf-8") as f:
+            try:
+                data=json.load(f)
+                for k in default:
+                    if k not in data:
+                        data[k]=default[k]
+                return data
+            except:
+                return default
+
+    return default
+
 
 def load_records():
 
     cols=[
-    "날짜",
-    "내 덱",
-    "상대 덱",
-    "아키타입",
-    "선후공",
-    "결과",
-    "세트",
-    "요인",
-    "카드"
+        "NO.","날짜","선후공","결과",
+        "세트 전적","점수",
+        "내 덱","상대 덱","아키타입",
+        "승패 요인","특정 카드",
+        "브릭","실수","비고"
     ]
 
     if os.path.exists(RECORD_FILE):
 
-        return pd.read_csv(RECORD_FILE)
+        try:
+            df=pd.read_csv(RECORD_FILE,dtype=str).fillna("")
+
+            for c in cols:
+                if c not in df.columns:
+                    df[c]=""
+
+            for c in ["브릭","실수"]:
+                df[c]=df[c].apply(lambda x:True if str(x).lower() in ["true","1"] else False)
+
+            return df[cols].reset_index(drop=True)
+
+        except:
+            pass
 
     return pd.DataFrame(columns=cols)
 
 
-def save_records(df):
+def save_data(df):
 
-    df.to_csv(RECORD_FILE,index=False)
+    df.to_csv(RECORD_FILE,index=False,encoding="utf-8-sig")
+    st.session_state.df=df.reset_index(drop=True)
 
+# ---------------- 분석 테이블 ----------------
 
-def load_meta():
-
-    if os.path.exists(META_FILE):
-
-        with open(META_FILE,"r") as f:
-            return json.load(f)
-
-    return meta_default
-
-
-def save_meta(meta):
-
-    with open(META_FILE,"w") as f:
-        json.dump(meta,f)
-
-
-# ---------------- 색상 표시 ----------------
-
-def color_val(v):
-
-    if v in ["선","승","OO","OXO","XOO"]:
-        return f"<span class='win'>{v}</span>"
-
-    if v in ["후","패","XX","XOX","OXX"]:
-        return f"<span class='loss'>{v}</span>"
-
-    return v
-
-
-# ---------------- 통계 계산 ----------------
-
-def calc_stats(df):
+def render_styled_table(title,df):
 
     calc=df[df["결과"].isin(["승","패"])]
-
     total=len(calc)
+
+    if total==0:
+        return f"<table class='styled-table'><tr><th>{title}</th></tr><tr><td>데이터 없음</td></tr></table>"
 
     w=len(calc[calc["결과"]=="승"])
     l=len(calc[calc["결과"]=="패"])
 
-    win_rate=(w/total*100) if total else 0
+    win_rate=(w/total*100)
 
     first=calc[calc["선후공"]=="선"]
     second=calc[calc["선후공"]=="후"]
@@ -138,248 +137,223 @@ def calc_stats(df):
     s_total=len(second)
 
     f_w=len(first[first["결과"]=="승"])
-    f_l=len(first[first["결과"]=="패"])
-
     s_w=len(second[second["결과"]=="승"])
-    s_l=len(second[second["결과"]=="패"])
-
-    return{
-    "total":total,
-    "w":w,
-    "l":l,
-    "rate":win_rate,
-    "f_total":f_total,
-    "s_total":s_total,
-    "f_w":f_w,
-    "f_l":f_l,
-    "s_w":s_w,
-    "s_l":s_l
-    }
-
-
-# ---------------- 표 생성 ----------------
-
-def render_table(title,stats):
 
     return f"""
+<table class='styled-table'>
 
-<table>
-
-<tr><th colspan=4>{title}</th></tr>
+<tr><th colspan=5>{title}</th></tr>
 
 <tr>
 <th>Games</th>
-<th>Win Rate</th>
+<th>WinRate</th>
 <th>W</th>
 <th>L</th>
+<th>-</th>
 </tr>
 
 <tr>
-<td>{stats["total"]}</td>
-<td>{stats["rate"]:.2f}%</td>
-<td class='win'>{stats["w"]}</td>
-<td class='loss'>{stats["l"]}</td>
+<td>{total}</td>
+<td>{win_rate:.2f}%</td>
+<td class='win-val'>{w}</td>
+<td class='loss-val'>{l}</td>
+<td>-</td>
 </tr>
 
 <tr>
 <th>1st</th>
 <th>2nd</th>
-<th>1st W</th>
-<th>2nd W</th>
+<th>1st W%</th>
+<th>2nd W%</th>
+<th>-</th>
 </tr>
 
 <tr>
-<td>{stats["f_total"]}</td>
-<td>{stats["s_total"]}</td>
-<td class='win'>{stats["f_w"]}</td>
-<td class='win'>{stats["s_w"]}</td>
+<td>{f_total}</td>
+<td>{s_total}</td>
+<td>{(f_w/f_total*100 if f_total else 0):.1f}%</td>
+<td>{(s_w/s_total*100 if s_total else 0):.1f}%</td>
+<td>-</td>
 </tr>
 
 </table>
-
 """
 
-# ---------------- 메뉴 ----------------
+# ---------------- Matchup Table ----------------
 
-page=st.sidebar.radio("Menu",["Record","Analysis","Setting"])
+def create_matchup_table(df):
 
-df=load_records()
-meta=load_meta()
+    df=df[df["결과"].isin(["승","패"])]
+    total_games=len(df)
+
+    rows=[]
+
+    for opp in sorted(df["상대 덱"].unique()):
+
+        sub=df[df["상대 덱"]==opp]
+
+        total=len(sub)
+        w=len(sub[sub["결과"]=="승"])
+        l=len(sub[sub["결과"]=="패"])
+
+        win_rate=(w/total*100) if total else 0
+
+        first=sub[sub["선후공"]=="선"]
+        second=sub[sub["선후공"]=="후"]
+
+        first_w=len(first[first["결과"]=="승"])
+        second_w=len(second[second["결과"]=="승"])
+
+        first_rate=(first_w/len(first)*100) if len(first) else 0
+        second_rate=(second_w/len(second)*100) if len(second) else 0
+
+        share=(total/total_games*100) if total_games else 0
+
+        arch=sub["아키타입"].iloc[0] if len(sub)>0 else ""
+
+        rows.append({
+            "Matchup":opp,
+            "Total":total,
+            "W":w,
+            "L":l,
+            "W%":round(win_rate,2),
+            "1stW%":round(first_rate,2),
+            "2ndW%":round(second_rate,2),
+            "Share":round(share,1),
+            "Arch":arch
+        })
+
+    df_out=pd.DataFrame(rows)
+
+    if not df_out.empty:
+        df_out=df_out.sort_values("W%",ascending=False)
+
+    return df_out
+
+# ---------------- 세션 초기화 ----------------
+
+if "metadata" not in st.session_state:
+    st.session_state.metadata=load_metadata()
+
+if "df" not in st.session_state:
+    st.session_state.df=load_records()
+
+page=st.sidebar.radio("메뉴",["📊 Record","📈 Analysis","⚙️ Setting"])
 
 # ---------------- Record ----------------
 
-if page=="Record":
+if page=="📊 Record":
 
-    st.title("Match Record")
+    st.title("📊 Record")
 
-    col1,col2=st.columns(2)
+    if st.button("➕ 새로운 경기 추가"):
 
-    with col1:
+        meta=st.session_state.metadata
 
-        my_deck=st.selectbox(
-        "내 덱",
-        meta["my_decks"]
+        new_row=pd.DataFrame([{
+            "NO.":str(len(st.session_state.df)+1),
+            "날짜":pd.Timestamp.now().strftime("%m.%d"),
+            "선후공":"선",
+            "결과":"승",
+            "세트 전적":"OO",
+            "점수":"",
+            "내 덱":meta["my_decks"][0],
+            "상대 덱":meta["opp_decks"][0],
+            "아키타입":meta["archetypes"][0],
+            "승패 요인":meta["win_loss_reasons"][0],
+            "특정 카드":meta["target_cards"][0],
+            "브릭":False,
+            "실수":False,
+            "비고":""
+        }])
+
+        st.session_state.df=pd.concat(
+            [st.session_state.df,new_row],
+            ignore_index=True
         )
 
-        opp_deck=st.selectbox(
-        "상대 덱",
-        meta["opp_decks"]
-        )
+        save_data(st.session_state.df)
+        st.rerun()
 
-        archetype=st.selectbox(
-        "아키타입",
-        meta["archetypes"]
-        )
+    edited=st.data_editor(
+        st.session_state.df,
+        use_container_width=True,
+        hide_index=True
+    )
 
-        coin=st.selectbox(
-        "선후공",
-        ["선","후"]
-        )
+    if not edited.equals(st.session_state.df):
 
-    with col2:
-
-        result=st.selectbox(
-        "결과",
-        ["승","패"]
-        )
-
-        set_score=st.selectbox(
-        "세트 전적",
-        set_record
-        )
-
-        reason=st.selectbox(
-        "승패 요인",
-        meta["reasons"]
-        )
-
-        card=st.selectbox(
-        "특정 카드",
-        meta["cards"]
-        )
-
-    if st.button("기록 추가"):
-
-        new_row={
-        "날짜":pd.Timestamp.now(),
-        "내 덱":my_deck,
-        "상대 덱":opp_deck,
-        "아키타입":archetype,
-        "선후공":coin,
-        "결과":result,
-        "세트":set_score,
-        "요인":reason,
-        "카드":card
-        }
-
-        df=pd.concat([df,pd.DataFrame([new_row])],ignore_index=True)
-
-        save_records(df)
-
-        st.success("저장 완료")
-
-    st.subheader("기록")
-
-    if not df.empty:
-
-        show=df.copy()
-
-        for c in ["선후공","결과","세트"]:
-            show[c]=show[c].apply(color_val)
-
-        st.write(show.to_html(escape=False,index=False),unsafe_allow_html=True)
-
+        save_data(edited)
+        st.rerun()
 
 # ---------------- Analysis ----------------
 
-elif page=="Analysis":
+elif page=="📈 Analysis":
 
-    st.title("Analysis")
+    st.title("📈 Rating Analysis")
 
-    if df.empty:
+    df=load_records()
 
-        st.write("데이터 없음")
-        st.stop()
+    if not df.empty:
 
-    st.markdown(
-    render_table(
-    "Overall Data",
-    calc_stats(df)
-    ),
-    unsafe_allow_html=True
-    )
+        st.markdown('<div class="analysis-wrapper">',unsafe_allow_html=True)
 
-    st.subheader("덱별 승률")
+        st.markdown(render_styled_table("Overall",df),unsafe_allow_html=True)
 
-    deck=st.selectbox(
-    "내 덱 선택",
-    df["내 덱"].dropna().unique()
-    )
+        st.subheader("덱 승률")
 
-    sub=df[df["내 덱"]==deck]
+        my=st.selectbox("내 덱",st.session_state.metadata["my_decks"])
 
-    st.markdown(
-    render_table(
-    deck,
-    calc_stats(sub)
-    ),
-    unsafe_allow_html=True
-    )
+        deck_df=df[df["내 덱"]==my]
 
-    st.subheader("상대 덱별")
+        st.markdown(render_styled_table(my,deck_df),unsafe_allow_html=True)
 
-    for opp in sorted(sub["상대 덱"].dropna().unique()):
+        st.subheader("Matchup Table")
 
-        opp_df=sub[sub["상대 덱"]==opp]
-
-        st.markdown(
-        render_table(
-        opp,
-        calc_stats(opp_df)
-        ),
-        unsafe_allow_html=True
+        deck_filter=st.selectbox(
+            "기준 덱",
+            st.session_state.metadata["my_decks"],
+            key="match"
         )
 
+        df_match=df[df["내 덱"]==deck_filter]
+
+        table=create_matchup_table(df_match)
+
+        st.dataframe(
+            table,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        st.markdown('</div>',unsafe_allow_html=True)
 
 # ---------------- Setting ----------------
 
 else:
 
-    st.title("Setting")
+    st.title("⚙️ Setting")
 
-    my=st.text_area(
-    "내 덱 목록",
-    "\n".join(meta["my_decks"])
-    )
+    meta=st.session_state.metadata
 
-    opp=st.text_area(
-    "상대 덱 목록",
-    "\n".join(meta["opp_decks"])
-    )
+    my=st.text_area("내 덱",",".join(meta["my_decks"]))
+    opp=st.text_area("상대 덱",",".join(meta["opp_decks"]))
+    arch=st.text_area("아키타입",",".join(meta["archetypes"]))
+    reason=st.text_area("승패 요인",",".join(meta["win_loss_reasons"]))
+    cards=st.text_area("특정 카드",",".join(meta["target_cards"]))
 
-    arch=st.text_area(
-    "아키타입",
-    "\n".join(meta["archetypes"])
-    )
+    if st.button("저장"):
 
-    reason=st.text_area(
-    "승패 요인",
-    "\n".join(meta["reasons"])
-    )
+        st.session_state.metadata={
+            "my_decks":[x.strip() for x in my.split(",") if x.strip()],
+            "opp_decks":[x.strip() for x in opp.split(",") if x.strip()],
+            "archetypes":[x.strip() for x in arch.split(",") if x.strip()],
+            "win_loss_reasons":[x.strip() for x in reason.split(",") if x.strip()],
+            "target_cards":[x.strip() for x in cards.split(",") if x.strip()]
+        }
 
-    cards=st.text_area(
-    "특정 카드",
-    "\n".join(meta["cards"])
-    )
-
-    if st.button("Setting 저장"):
-
-        meta["my_decks"]=my.split("\n")
-        meta["opp_decks"]=opp.split("\n")
-        meta["archetypes"]=arch.split("\n")
-        meta["reasons"]=reason.split("\n")
-        meta["cards"]=cards.split("\n")
-
-        save_meta(meta)
+        with open(META_FILE,"w",encoding="utf-8") as f:
+            json.dump(st.session_state.metadata,f,ensure_ascii=False,indent=4)
 
         st.success("저장 완료")
+        st.rerun()

@@ -53,24 +53,36 @@ def load_records():
     cols = ["NO.", "날짜", "선후공", "결과", "세트 전적", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
     if os.path.exists(RECORD_FILE):
         try:
-            # 불러올 때 모든 빈칸을 빈 문자열("")로 대체 (None 방지)
-            df = pd.read_csv(RECORD_FILE).fillna("")
+            df = pd.read_csv(RECORD_FILE)
+            # 1. 누락된 컬럼 생성 및 빈칸을 빈 문자열로 채우기
             for col in cols:
-                if col not in df.columns: df[col] = False if col in ["브릭", "실수"] else ""
+                if col not in df.columns:
+                    df[col] = False if col in ["브릭", "실수"] else ""
             
-            # 타입 보정
-            df["브릭"] = df["브릭"].apply(lambda x: True if x == True or x == "True" else False)
-            df["실수"] = df["실수"].apply(lambda x: True if x == True or x == "True" else False)
+            # 2. [핵심] 모든 컬럼의 데이터 타입을 에디터 규격에 맞게 강제 변환
+            df["날짜"] = df["날짜"].astype(str).replace(["nan", "None", "NaN"], "")
+            df["선후공"] = df["선후공"].astype(str)
+            df["결과"] = df["결과"].astype(str)
+            df["내 덱"] = df["내 덱"].astype(str)
+            df["상대 덱"] = df["상대 덱"].astype(str)
+            df["비고"] = df["비고"].astype(str).replace(["nan", "None", "NaN"], "")
+            
+            # 3. 체크박스 타입 안전하게 변환
+            for col in ["브릭", "실수"]:
+                df[col] = df[col].apply(lambda x: True if str(x).lower() == 'true' else False)
+            
+            # 4. 넘버링 정수화 (1부터 시작)
             df["NO."] = range(1, len(df) + 1)
+            
             return df
         except: pass
     return pd.DataFrame(columns=cols)
 
 def save_data_auto(current_df):
-    # 저장 전 넘버링 및 빈칸 처리
+    # 저장 전 넘버링 재정렬 및 빈칸 정리
     current_df["NO."] = range(1, len(current_df) + 1)
-    # NaN이나 None을 빈 문자열로 확실히 변환하여 저장
-    save_df = current_df.replace({np.nan: "", None: ""})
+    save_df = current_df.copy()
+    # 저장 시 불필요한 객체 타입 방지
     save_df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
     st.session_state.df = save_df
 
@@ -99,7 +111,7 @@ def render_analysis_table(target_df):
         </table>
     """
 
-# --- 5. 메인 로직 ---
+# --- 5. 세션 관리 및 메인 로직 ---
 if 'metadata' not in st.session_state:
     st.session_state.metadata = load_metadata()
 if 'df' not in st.session_state:
@@ -121,11 +133,13 @@ if page == "📊 기록":
             "특정 카드": st.session_state.metadata["target_cards"][0],
             "브릭": False, "실수": False, "비고": ""
         }])
+        # 추가할 때도 타입을 문자열로 통일하여 합침
+        new_row = new_row.astype({"날짜": str, "비고": str})
         st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
         save_data_auto(st.session_state.df)
         st.rerun()
 
-    # 에디터 설정
+    # 에디터 호출 (타입 충돌 방지를 위해 명시적 설정)
     edited_df = st.data_editor(
         st.session_state.df, 
         use_container_width=True, 
@@ -134,7 +148,7 @@ if page == "📊 기록":
         key="rating_editor",
         column_config={
             "NO.": st.column_config.NumberColumn("NO.", disabled=True, format="%d"),
-            "날짜": st.column_config.TextColumn("날짜", help="03.17 형식으로 입력 가능"), # 문자 입력 가능하게 변경
+            "날짜": st.column_config.TextColumn("날짜"), # 문자열 입력 지원
             "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], required=True),
             "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], required=True),
             "세트 전적": st.column_config.SelectboxColumn("세트 전적", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"]),
@@ -169,13 +183,13 @@ else:
     st.title("⚙️ Rating 설정")
     meta = st.session_state.metadata
     c1, c2 = st.columns(2)
-    with c1: new_my = st.text_area("내 덱 (쉼표 구분)", ", ".join(meta.get("my_decks", [])))
-    with c2: new_opp = st.text_area("상대 덱 (쉼표 구분)", ", ".join(meta.get("opp_decks", [])))
+    with c1: new_my = st.text_area("내 덱", ", ".join(meta.get("my_decks", [])))
+    with c2: new_opp = st.text_area("상대 덱", ", ".join(meta.get("opp_decks", [])))
     c3, c4 = st.columns(2)
-    with c3: new_reasons = st.text_area("승패 요인 (쉼표 구분)", ", ".join(meta.get("win_loss_reasons", [])))
-    with c4: new_arche = st.text_area("아키타입 (쉼표 구분)", ", ".join(meta.get("archetypes", [])))
+    with c3: new_reasons = st.text_area("승패 요인", ", ".join(meta.get("win_loss_reasons", [])))
+    with c4: new_arche = st.text_area("아키타입", ", ".join(meta.get("archetypes", [])))
     c5, _ = st.columns(2)
-    with c5: new_cards = st.text_area("특정 카드 (쉼표 구분)", ", ".join(meta.get("target_cards", [])))
+    with c5: new_cards = st.text_area("특정 카드", ", ".join(meta.get("target_cards", [])))
     
     if st.button("✅ 설정 저장"):
         st.session_state.metadata = {

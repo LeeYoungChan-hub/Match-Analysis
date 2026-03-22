@@ -7,7 +7,7 @@ import json
 RECORD_FILE = 'yugioh_records.csv'
 META_FILE = 'metadata_config.json'
 
-st.set_page_config(page_title="YGO Rating Analysis", layout="wide")
+st.set_page_config(page_title="Rating Analysis", layout="wide")
 
 # --- 2. [디자인] 엑셀 스타일 헤더 및 테이블 커스텀 ---
 st.markdown("""

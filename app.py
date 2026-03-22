@@ -118,7 +118,7 @@ if page == "📊 기록":
     
     if st.button("➕ 새로운 경기 추가"):
         new_row = pd.DataFrame([{
-            "NO.": 0, "날짜": pd.Timestamp.now().strftime("%m.%d"), 
+            "NO.": st.column_config.NumberColumn("NO.", format="%d"), "날짜": pd.Timestamp.now().strftime("%m.%d"), 
             "선후공": "선", "결과": "승", "세트 전적": "OO", 
             "내 덱": st.session_state.metadata["my_decks"][0], 
             "상대 덱": st.session_state.metadata["opp_decks"][0],

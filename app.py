@@ -10,12 +10,11 @@ FILENAME = "2026.03 레이팅 - Record.csv"
 if 'df' not in st.session_state:
     try:
         st.session_state.df = pd.read_csv(FILENAME)
-        # 체크박스 호환을 위한 데이터 변환 (문자열로 저장된 경우 대비)
-        st.session_state.df['브릭'] = st.session_state.df['브릭'].map({'TRUE': True, 'FALSE': False, True: True, False: False}).fillna(False)
-        st.session_state.df['실수'] = st.session_state.df['실수'].map({'TRUE': True, 'FALSE': False, True: True, False: False}).fillna(False)
+        # 데이터 로드 시 체크박스 열을 불리언 타입으로 확실히 변환
+        st.session_state.df['브릭'] = pd.to_numeric(st.session_state.df['브릭'], errors='coerce').fillna(0).astype(bool)
+        st.session_state.df['실수'] = pd.to_numeric(st.session_state.df['실수'], errors='coerce').fillna(0).astype(bool)
     except:
         columns = ["NO.", "날짜", "선후공", "결과", "세트 전적", "점수", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
-        # 초기 가이드 행 (0번 인덱스)
         sub_label_row = {
             "NO.": "0", "날짜": "Date", "선후공": "0.00%", "결과": "0.00%", 
             "세트 전적": "Result", "점수": "0", "내 덱": "Use.deck", 
@@ -42,19 +41,18 @@ tab1, tab2 = st.tabs(["📊 Record", "⚙️ Setting"])
 with tab1:
     st.title("📊 Rating Dashboard")
 
-    # 데이터 분리 (첫 번째 행은 가이드/통계용)
+    # 1행(가이드)과 나머지(데이터) 분리
     guide_df = st.session_state.df.iloc[[0]].copy()
     data_df = st.session_state.df.iloc[1:].copy()
 
-    # 가이드 행 에디터
     st.subheader("📋 가이드 및 통계")
+    # 가이드 행은 체크박스가 아닌 일반 텍스트로 표시되도록 설정
     edited_guide = st.data_editor(
         guide_df, 
         use_container_width=True, 
         key="guide_editor"
     )
 
-    # 실제 데이터 에디터
     st.subheader("📝 경기 기록")
     edited_data = st.data_editor(
         data_df,
@@ -75,48 +73,43 @@ with tab1:
         }
     )
 
-    # 데이터 저장 버튼 및 자동 계산 로직
     if st.button("💾 데이터 저장"):
-        total_games = len(edited_data)
-        
-        if total_games > 0:
-            # 1. 승률 및 선공 비율 계산
+        if len(edited_data) > 0:
+            # --- 계산 로직 ---
+            total_games = len(edited_data)
             win_count = len(edited_data[edited_data["결과"] == "승"])
-            win_rate = (win_count / total_games) * 100
-            
             first_count = len(edited_data[edited_data["선후공"] == "선"])
-            first_rate = (first_count / total_games) * 100
             
-            # 2. 브릭/실수 합계 계산 (True인 항목의 개수)
-            brick_sum = edited_data["브릭"].sum()
-            mistake_sum = edited_data["실수"].sum()
-
-            # 3. 마지막 행 데이터 추출
-            last_row = edited_data.iloc[-1]
-            last_no = last_row["NO."]
-            last_score = last_row["점수"]
+            # 불리언(체크박스) 합계 계산
+            brick_count = edited_data["브릭"].astype(bool).sum()
+            mistake_count = edited_data["실수"].astype(bool).sum()
             
-            # 가이드 행 업데이트
-            edited_guide.at[0, "NO."] = str(last_no)       # 마지막 경기 번호
-            edited_guide.at[0, "점수"] = str(last_score)    # 마지막 점수
-            edited_guide.at[0, "결과"] = f"{win_rate:.2f}%"
-            edited_guide.at[0, "선후공"] = f"{first_rate:.2f}%"
-            edited_guide.at[0, "브릭"] = str(int(brick_sum))   # 브릭 체크박스 합계
-            edited_guide.at[0, "실수"] = str(int(mistake_sum)) # 실수 체크박스 합계
+            # 마지막 행 값 추출
+            last_no = edited_data.iloc[-1]["NO."]
+            last_score = edited_data.iloc[-1]["점수"]
 
-        # 데이터 합치기 및 세션 저장
+            # --- 가이드 행(edited_guide) 업데이트 ---
+            # .iat 또는 .at을 사용하여 확실하게 값을 주입합니다.
+            edited_guide.iloc[0, edited_guide.columns.get_loc("NO.")] = str(last_no)
+            edited_guide.iloc[0, edited_guide.columns.get_loc("점수")] = str(last_score)
+            edited_guide.iloc[0, edited_guide.columns.get_loc("결과")] = f"{(win_count/total_games)*100:.2f}%"
+            edited_guide.iloc[0, edited_guide.columns.get_loc("선후공")] = f"{(first_count/total_games)*100:.2f}%"
+            edited_guide.iloc[0, edited_guide.columns.get_loc("브릭")] = str(int(brick_count))
+            edited_guide.iloc[0, edited_guide.columns.get_loc("실수")] = str(int(mistake_count))
+
+        # 데이터 합치기
         st.session_state.df = pd.concat([edited_guide, edited_data], ignore_index=True)
         
         # 파일 저장
         st.session_state.df.to_csv(FILENAME, index=False, encoding='utf-8-sig')
-        st.success("통계가 실시간으로 합산되어 업데이트되었습니다!")
+        st.success("데이터 및 통계 합계가 저장되었습니다!")
         st.rerun()
 
     csv = st.session_state.df.to_csv(index=False).encode('utf-8-sig')
     st.download_button("📥 CSV 다운로드", data=csv, file_name=FILENAME, mime='text/csv')
 
 # ---------------------------------------------------------
-# TAB 2: Setting 페이지
+# TAB 2: Setting 페이지 (기존과 동일)
 # ---------------------------------------------------------
 with tab2:
     st.title("⚙️ Setting")

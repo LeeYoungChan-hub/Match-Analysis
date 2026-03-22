@@ -98,4 +98,40 @@ if page == "📊 전적 기록 (Record)":
             "선후공": st.column_config.SelectboxColumn("선/후", options=["선", "후"]),
             "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"]),
             "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata["my_decks"]),
-            "상대 덱": st.column_config.SelectboxColumn("
+            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata["opp_decks"]),
+            "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata["archetypes"]),
+            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata["target_cards"]),
+            "실수": st.column_config.CheckboxColumn("실수"),
+            "브릭": st.column_config.CheckboxColumn("브릭")
+        }
+    )
+
+    if st.button("💾 모든 데이터 저장", type="primary"):
+        st.session_state.df = edited_df
+        st.session_state.df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
+        st.success("데이터가 성공적으로 저장되었습니다!")
+        st.rerun()
+
+# ---------------------------------------------------------
+# [페이지 2] Meta Data
+# ---------------------------------------------------------
+else:
+    st.title("⚙️ Meta Data: 목록 설정")
+    m_col1, m_col2 = st.columns(2)
+    with m_col1:
+        my_decks_str = st.text_area("내 덱 리스트", ", ".join(st.session_state.metadata["my_decks"]), height=150)
+        opp_decks_str = st.text_area("상대 덱 리스트", ", ".join(st.session_state.metadata["opp_decks"]), height=150)
+    
+    with m_col2:
+        arche_str = st.text_area("상대 아키타입 (운영, 전개 등)", ", ".join(st.session_state.metadata["archetypes"]), height=150)
+        cards_str = st.text_area("특정 카드 리스트", ", ".join(st.session_state.metadata["target_cards"]), height=150)
+    
+    if st.button("✅ 모든 설정값 저장", type="primary"):
+        st.session_state.metadata = {
+            "my_decks": [x.strip() for x in my_decks_str.split(",") if x.strip()],
+            "opp_decks": [x.strip() for x in opp_decks_str.split(",") if x.strip()],
+            "archetypes": [x.strip() for x in arche_str.split(",") if x.strip()],
+            "target_cards": [x.strip() for x in cards_str.split(",") if x.strip()]
+        }
+        save_metadata(st.session_state.metadata)
+        st.success("설정값이 업데이트되었습니다!")

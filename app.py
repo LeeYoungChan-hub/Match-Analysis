@@ -8,7 +8,7 @@ import json
 RECORD_FILE = 'yugioh_records.csv'
 META_FILE = 'metadata_config.json'
 
-st.set_page_config(page_title="YGO Rating System", layout="wide")
+st.set_page_config(page_title="Rating", layout="wide")
 
 # 🔥 [UI 최적화] 중앙 정렬 및 불필요 요소 제거 CSS
 st.markdown("""

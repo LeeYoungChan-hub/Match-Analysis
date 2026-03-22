@@ -12,11 +12,10 @@ st.set_page_config(page_title="YGO Rating Analysis", layout="wide")
 # --- 2. [디자인] 시스템 요소 숨기기 및 분석 레이아웃 CSS ---
 st.markdown("""
     <style>
-    /* [기록 페이지] 시스템 인덱스 열(0,1,2...) 및 편집 아이콘 완전 숨김 */
+    /* [기록 페이지] 시스템 인덱스 및 편집 아이콘 완전 숨김 */
     [data-testid="stTableIdxColumn"] { display: none !important; width: 0px !important; }
     th.col_heading.level0.index_name { display: none !important; }
     
-    /* NO. 칸의 연필 아이콘과 줄 3개 핸들 투명화 */
     [data-testid="stDataFrameResizable"] div[role="grid"] div[role="row"] div:first-child svg {
         display: none !important;
     }
@@ -27,7 +26,7 @@ st.markdown("""
         font-size: 13px !important;
     }
 
-    /* [분석 페이지] 왼쪽 1/3 너비 및 테이블 디자인 */
+    /* [분석 페이지] 이미지 비율 유지를 위한 너비 고정 */
     .analysis-wrapper { width: 420px; margin-left: 0; }
     .styled-table { 
         width: 100%; font-size: 13px; border-collapse: collapse; 
@@ -42,7 +41,6 @@ st.markdown("""
     .win-val { color: #0000ff !important; font-weight: bold; }
     .loss-val { color: #ff0000 !important; font-weight: bold; }
     
-    /* 드롭다운 스타일 최적화 */
     div[data-testid="stSelectbox"] { width: 100% !important; }
     </style>
 """, unsafe_allow_html=True)
@@ -83,7 +81,6 @@ def save_data(df):
     df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
     st.session_state.df = df.reset_index(drop=True)
 
-# 분석 표 렌더링 함수
 def render_styled_table(title, target_df):
     calc_df = target_df[target_df['결과'].isin(['승', '패'])]
     total = len(calc_df)
@@ -95,6 +92,7 @@ def render_styled_table(title, target_df):
     win_rate = (wins / total * 100)
     
     f_df, s_df = calc_df[calc_df['선후공'] == '선'], calc_df[calc_df['선후공'] == '후']
+    f_total, s_total = len(f_df), len(s_df)
     f_wins = len(f_df[f_df['결과'] == '승'])
     s_wins = len(s_df[s_df['결과'] == '승'])
     
@@ -104,11 +102,11 @@ def render_styled_table(title, target_df):
             <tr><th>Overall</th><th>Games</th><th>Win Rate</th><th>W</th><th>L</th></tr>
             <tr><td>Result</td><td>{total}</td><td>{win_rate:.2f}%</td><td class="win-val">{wins}</td><td class="loss-val">{losses}</td></tr>
             <tr><th>Coin</th><th>1st</th><th>2nd</th><th>1st Rate</th><th>2nd Rate</th></tr>
-            <tr><td>Result</td><td class="win-val">{{len(f_df)}}</td><td class="loss-val">{{len(s_df)}}</td><td class="win-val">{{(len(f_df)/total*100):.1f}%</td><td class="loss-val">{{(len(s_df)/total*100):.1f}%</td></tr>
+            <tr><td>Result</td><td class="win-val">{f_total}</td><td class="loss-val">{s_total}</td><td class="win-val">{(f_total/total*100):.1f}%</td><td class="loss-val">{(s_total/total*100):.1f}%</td></tr>
             <tr><th>1st</th><th>1st Win</th><th>1st Lose</th><th>1st W%</th><th>1st L%</th></tr>
-            <tr><td>Result</td><td class="win-val">{f_wins}</td><td class="loss-val">{len(f_df)-f_wins}</td><td class="win-val">{(f_wins/len(f_df)*100 if len(f_df)>0 else 0):.1f}%</td><td class="loss-val">{(100-(f_wins/len(f_df)*100) if len(f_df)>0 else 0):.1f}%</td></tr>
+            <tr><td>Result</td><td class="win-val">{f_wins}</td><td class="loss-val">{f_total-f_wins}</td><td class="win-val">{(f_wins/f_total*100 if f_total>0 else 0):.1f}%</td><td class="loss-val">{(100-(f_wins/f_total*100) if f_total>0 else 0):.1f}%</td></tr>
             <tr><th>2nd</th><th>2nd Win</th><th>2nd Lose</th><th>2nd W%</th><th>2nd L%</th></tr>
-            <tr><td>Result</td><td class="win-val">{s_wins}</td><td class="loss-val">{len(s_df)-s_wins}</td><td class="win-val">{(s_wins/len(s_df)*100 if len(s_df)>0 else 0):.1f}%</td><td class="loss-val">{(100-(s_wins/len(s_df)*100) if len(s_df)>0 else 0):.1f}%</td></tr>
+            <tr><td>Result</td><td class="win-val">{s_wins}</td><td class="loss-val">{s_total-s_wins}</td><td class="win-val">{(s_wins/s_total*100 if s_total>0 else 0):.1f}%</td><td class="loss-val">{(100-(s_wins/s_total*100) if s_total>0 else 0):.1f}%</td></tr>
         </table>
     """
 
@@ -135,9 +133,8 @@ if page == "📊 기록":
         save_data(st.session_state.df)
         st.rerun()
 
-    # 기록 표 컬럼 설정 (요청하신 너비 반영)
     edited_df = st.data_editor(
-        st.session_state.df, use_container_width=True, num_rows="dynamic", hide_index=True, key="ygo_editor_v7",
+        st.session_state.df, use_container_width=True, num_rows="dynamic", hide_index=True, key="ygo_editor_v9",
         column_config={
             "NO.": st.column_config.TextColumn("NO.", width=45),
             "날짜": st.column_config.TextColumn("날짜", width=65),
@@ -151,7 +148,7 @@ if page == "📊 기록":
             "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata.get("target_cards", []), width=100),
             "브릭": st.column_config.CheckboxColumn("브릭", width=55), 
             "실수": st.column_config.CheckboxColumn("실수", width=55), 
-            "비고": st.column_config.TextColumn("비고", width=500) # 비고 범위를 대폭 확장
+            "비고": st.column_config.TextColumn("비고", width=500)
         }
     )
     if not edited_df.equals(st.session_state.df):

@@ -5,37 +5,33 @@ import pandas as pd
 # 1. 페이지 설정
 st.set_page_config(page_title="Rating Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
-# 표 스타일 및 너비 설정
+# 열 너비 설정 (사용자 요청 반영)
 CELL_FONT_PX = "10px"
-COL_W_STATUS = 25  # 요청하신 25픽셀
-COL_W_NO = 45      # NO. 열 슬림화
-COL_W_FIXED = "92px" # 기존 점수 등 고정 너비
+COL_W_STATUS = 30  # 색상 셀 30
+COL_W_NO = 80      # NO. 셀 확대
+COL_W_SMALL = 55   # 선후공, 결과 셀 축소
+COL_W_FIXED = "92px"
 
 def _compact_layout_css() -> None:
     st.markdown(
         f"""
         <style>
-        .block-container {{ padding-top: 0.45rem !important; padding-bottom: 0.3rem !important; padding-left: 0.55rem !important; padding-right: 0.55rem !important; max-width: 100% !important; }}
+        .block-container {{ padding-top: 0.45rem !important; padding-bottom: 0.5rem !important; padding-left: 0.55rem !important; padding-right: 0.55rem !important; max-width: 100% !important; }}
         [data-testid="stDataFrame"] {{ margin-bottom: 0.15rem !important; font-size: {CELL_FONT_PX} !important; }}
         
-        /* 25px 좁은 칸에서 이모지 중앙 정렬 및 여백 제거 */
-        [data-testid="stDataFrame"] [role="gridcell"] {{ 
-            padding-left: 0px !important; 
-            padding-right: 0px !important; 
+        /* 중앙 정렬 및 여백 최적화 */
+        [data-testid="stDataFrame"] [role="gridcell"], 
+        [data-testid="stDataFrame"] [role="columnheader"] {{ 
             text-align: center !important; 
             justify-content: center !important; 
-        }}
-        [data-testid="stDataFrame"] [role="columnheader"] {{
-            padding-left: 0px !important; 
-            padding-right: 0px !important;
+            padding: 0px !important;
         }}
         
-        /* 헤더/셀 공통 중앙 정렬 */
-        [data-testid="stDataFrame"] [role="gridcell"] *,
-        [data-testid="stDataFrame"] [role="columnheader"] * {{
-            text-align: center !important;
-            vertical-align: middle !important;
+        /* 하단 탭 스타일 강조 */
+        .stTabs [data-baseweb="tab-list"] {{
             justify-content: center !important;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
         }}
         </style>
         """,
@@ -44,15 +40,13 @@ def _compact_layout_css() -> None:
 
 _compact_layout_css()
 
-# 2. 데이터 및 설정값 초기화
+# 2. 데이터 초기화
 FILENAME = "2026.03 레이팅 - Record.csv"
-STATUS_OPTS = ["⚪", "🔵", "🟠"] # 텍스트 제거, 이모지만 사용
+STATUS_OPTS = ["⚪", "🔵", "🟠"]
 
 if 'df' not in st.session_state:
     try:
         st.session_state.df = pd.read_csv(FILENAME)
-        if "세트 전적" in st.session_state.df.columns:
-            st.session_state.df = st.session_state.df.rename(columns={"세트 전적": "세트"})
         if "상태" not in st.session_state.df.columns:
             st.session_state.df.insert(1, "상태", "⚪")
         st.session_state.df['브릭'] = pd.to_numeric(st.session_state.df['브릭'], errors='coerce').fillna(0).astype(bool)
@@ -60,10 +54,9 @@ if 'df' not in st.session_state:
     except:
         columns = ["NO.", "상태", "날짜", "선후공", "결과", "세트", "점수", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
         sub_label_row = {
-            "NO.": "0", "상태": "⚪", "날짜": "Date", "선후공": "0.00%", "결과": "0.00%",
-            "세트": "Result", "점수": "0", "내 덱": "Use.deck", "상대 덱": "Opp. deck",
-            "아키타입": "Plus Arch.", "승패 요인": "W/L Factor", "특정 카드": "Certain Card",
-            "브릭": 0, "실수": 0, "비고": "Detail"
+            "NO.": "Game No.", "상태": "⚪", "날짜": "Date", "선후공": "0%", "결과": "0%",
+            "세트": "Res", "점수": "0", "내 덱": "My", "상대 덱": "Opp", "아키타입": "Arch",
+            "승패 요인": "Factor", "특정 카드": "Card", "브릭": 0, "실수": 0, "비고": "Note"
         }
         st.session_state.df = pd.DataFrame([sub_label_row], columns=columns)
 
@@ -76,7 +69,7 @@ if 'options' not in st.session_state:
         "아키타입": ["60", "Arch"]
     }
 
-# --- 헬퍼 함수들 ---
+# --- 필수 헬퍼 함수 ---
 def _brick_mistake_sums(df: pd.DataFrame) -> tuple[int, int]:
     b = pd.to_numeric(df["브릭"], errors="coerce").fillna(0).astype(bool)
     m = pd.to_numeric(df["실수"], errors="coerce").fillna(0).astype(bool)
@@ -90,30 +83,6 @@ def _display_cell_str(v) -> str:
     except (TypeError, ValueError): pass
     return str(v)
 
-def _sync_guide_stats_row(guide: pd.DataFrame, stats_src: pd.DataFrame) -> None:
-    if len(stats_src) == 0: return
-    last = stats_src.iloc[-1]
-    guide.iloc[0, guide.columns.get_loc("NO.")] = _display_cell_str(last["NO."])
-    guide.iloc[0, guide.columns.get_loc("점수")] = _display_cell_str(last["점수"])
-    b_sum, m_sum = _brick_mistake_sums(stats_src)
-    guide.iloc[0, guide.columns.get_loc("브릭")] = b_sum
-    guide.iloc[0, guide.columns.get_loc("실수")] = m_sum
-
-def _apply_guide_stats_from_records(guide: pd.DataFrame, records: pd.DataFrame) -> pd.DataFrame:
-    g = guide.copy()
-    if len(records) == 0: return g
-    total = len(records)
-    wins = len(records[records["결과"] == "승"])
-    firsts = len(records[records["선후공"] == "선"])
-    b_cnt, m_cnt = _brick_mistake_sums(records)
-    g.iloc[0, g.columns.get_loc("NO.")] = _display_cell_str(records.iloc[-1]["NO."])
-    g.iloc[0, g.columns.get_loc("점수")] = _display_cell_str(records.iloc[-1]["점수"])
-    g.iloc[0, g.columns.get_loc("결과")] = f"{(wins / total) * 100:.2f}%" if total > 0 else "0.00%"
-    g.iloc[0, g.columns.get_loc("선후공")] = f"{(firsts / total) * 100:.2f}%" if total > 0 else "0.00%"
-    g.iloc[0, g.columns.get_loc("브릭")] = int(b_cnt)
-    g.iloc[0, g.columns.get_loc("실수")] = int(m_cnt)
-    return g
-
 def _sanitize_for_editor(df: pd.DataFrame, is_guide=False) -> pd.DataFrame:
     out = df.copy()
     for c in out.columns:
@@ -124,70 +93,81 @@ def _sanitize_for_editor(df: pd.DataFrame, is_guide=False) -> pd.DataFrame:
         for c in ["브릭", "실수"]: out[c] = pd.to_numeric(out[c], errors="coerce").fillna(0).astype(bool)
     return out
 
-# 3. 탭 구성
-tab_record, tab_setting = st.tabs(["📊 Record", "⚙️ Setting"])
+# ---------------------------------------------------------
+# 메인 레이아웃 (상단 기록 -> 하단 탭 메뉴)
+# ---------------------------------------------------------
+st.title("📊 Rating Dashboard")
+
+# 가이드와 데이터 분리
+guide_df = _sanitize_for_editor(st.session_state.df.iloc[[0]], is_guide=True)
+data_df = _sanitize_for_editor(st.session_state.df.iloc[1:], is_guide=False)
+
+# 하단 탭으로 페이지 분리
+tab_record, tab_setting = st.tabs(["🎮 Game Record", "⚙️ Dashboard Settings"])
 
 with tab_record:
-    st.title("📊 Rating Dashboard")
-    
-    # 가이드(1행)와 데이터 분리
-    guide_df = st.session_state.df.iloc[[0]].copy()
-    data_df = st.session_state.df.iloc[1:].copy()
-
-    # 실시간 통계 반영 (직전 편집 데이터 기준)
-    stats_src = st.session_state.get("last_edited_record_data", data_df)
-    _sync_guide_stats_row(guide_df, stats_src)
-
-    guide_df = _sanitize_for_editor(guide_df, is_guide=True)
-    data_df = _sanitize_for_editor(data_df, is_guide=False)
-
     st.subheader("📋 가이드 및 통계")
     st.data_editor(
         guide_df, use_container_width=True, height=95, num_rows="fixed", hide_index=True,
         column_config={
-            "NO.": st.column_config.TextColumn("NO.", disabled=True, width=COL_W_NO),
-            "상태": st.column_config.TextColumn(" ", disabled=True, width=COL_W_STATUS),
-            "점수": st.column_config.TextColumn("점수", disabled=True, width=COL_W_FIXED),
-            "브릭": st.column_config.NumberColumn("브릭", format="%d", disabled=True),
-            "실수": st.column_config.NumberColumn("실수", format="%d", disabled=True),
+            "NO.": st.column_config.TextColumn("NO.", width=COL_W_NO),
+            "상태": st.column_config.TextColumn(" ", width=COL_W_STATUS),
+            "선후공": st.column_config.TextColumn("선후공", width=COL_W_SMALL),
+            "결과": st.column_config.TextColumn("결과", width=COL_W_SMALL),
+            "점수": st.column_config.TextColumn("점수", width=COL_W_FIXED),
         }
     )
 
     st.subheader("📝 경기 기록")
     edited_data = st.data_editor(
-        data_df, num_rows="dynamic", use_container_width=True, height=500, key="data_editor",
+        data_df, num_rows="dynamic", use_container_width=True, height=550, key="main_editor",
         column_config={
             "NO.": st.column_config.TextColumn("NO.", width=COL_W_NO),
             "상태": st.column_config.SelectboxColumn(" ", options=STATUS_OPTS, width=COL_W_STATUS),
-            "선후공": st.column_config.SelectboxColumn("선후공", options=["", "선", "후"], width="65px"),
-            "결과": st.column_config.SelectboxColumn("결과", options=["", "승", "패"], width="65px"),
+            "선후공": st.column_config.SelectboxColumn("선/후", options=["", "선", "후"], width=COL_W_SMALL),
+            "결과": st.column_config.SelectboxColumn("결과", options=["", "승", "패"], width=COL_W_SMALL),
             "점수": st.column_config.TextColumn("점수", width=COL_W_FIXED),
-            "브릭": st.column_config.CheckboxColumn("브릭", default=False),
-            "실수": st.column_config.CheckboxColumn("실수", default=False),
+            "브릭": st.column_config.CheckboxColumn("브릭"),
+            "실수": st.column_config.CheckboxColumn("실수"),
             "내 덱": st.column_config.SelectboxColumn("내 덱", options=[""] + st.session_state.options["내 덱"]),
             "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=[""] + st.session_state.options["상대 덱"]),
         }
     )
-    st.session_state.last_edited_record_data = edited_data.copy()
 
-    if st.button("💾 저장", type="primary", use_container_width=True):
-        guide_to_save = _apply_guide_stats_from_records(guide_df, edited_data)
-        merged = pd.concat([guide_to_save, edited_data], ignore_index=True)
+    if st.button("💾 데이터 저장", type="primary", use_container_width=True):
+        # 통계 재계산 로직
+        total = len(edited_data)
+        wins = len(edited_data[edited_data["결과"] == "승"])
+        firsts = len(edited_data[edited_data["선후공"] == "선"])
+        b_sum, m_sum = _brick_mistake_sums(edited_data)
+        
+        # 가이드 행 업데이트
+        if total > 0:
+            guide_df.iloc[0, guide_df.columns.get_loc("결과")] = f"{(wins/total)*100:.1f}%"
+            guide_df.iloc[0, guide_df.columns.get_loc("선후공")] = f"{(firsts/total)*100:.1f}%"
+            guide_df.iloc[0, guide_df.columns.get_loc("NO.")] = str(edited_data.iloc[-1]["NO."])
+            guide_df.iloc[0, guide_df.columns.get_loc("점수")] = str(edited_data.iloc[-1]["점수"])
+            guide_df.iloc[0, guide_df.columns.get_loc("브릭")] = b_sum
+            guide_df.iloc[0, guide_df.columns.get_loc("실수")] = m_sum
+        
+        merged = pd.concat([guide_df, edited_data], ignore_index=True)
         st.session_state.df = merged
         merged.to_csv(FILENAME, index=False, encoding="utf-8-sig")
-        st.success("데이터가 저장되었습니다.")
+        st.success("저장 완료!")
         st.rerun()
 
-# 4. Setting 탭
 with tab_setting:
-    st.title("⚙️ Setting")
-    col1, col2, col3 = st.columns(3)
-    with col1: my_decks = st.text_area("내 덱 목록", value="\n".join(st.session_state.options["내 덱"]), height=200)
-    with col2: opp_decks = st.text_area("상대 덱 목록", value="\n".join(st.session_state.options["상대 덱"]), height=200)
-    with col3: specific_cards = st.text_area("특정 카드 목록", value="\n".join(st.session_state.options["특정 카드"]), height=200)
-
-    if st.button("✅ 설정 적용"):
-        st.session_state.options["내 덱"] = [x.strip() for x in my_decks.split("\n") if x.strip()]
-        st.session_state.options["상대 덱"] = [x.strip() for x in opp_decks.split("\n") if x.strip()]
-        st.session_state.options["특정 카드"] = [x.strip() for x in specific_cards.split("\n") if x.strip()]
-        st.success("설정이 적용되었습니다.")
+    st.subheader("⚙️ 덱 및 카드 목록 관리")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        new_my = st.text_area("내 덱", value="\n".join(st.session_state.options["내 덱"]), height=250)
+    with c2:
+        new_opp = st.text_area("상대 덱", value="\n".join(st.session_state.options["상대 덱"]), height=250)
+    with c3:
+        new_card = st.text_area("특정 카드", value="\n".join(st.session_state.options["특정 카드"]), height=250)
+    
+    if st.button("✅ 변경 사항 적용", use_container_width=True):
+        st.session_state.options["내 덱"] = [x.strip() for x in new_my.split("\n") if x.strip()]
+        st.session_state.options["상대 덱"] = [x.strip() for x in new_opp.split("\n") if x.strip()]
+        st.session_state.options["특정 카드"] = [x.strip() for x in new_card.split("\n") if x.strip()]
+        st.success("설정되었습니다.")

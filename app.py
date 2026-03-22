@@ -1,68 +1,79 @@
 import streamlit as st
 import pandas as pd
-import os
-import json
+import plotly.express as px
 
-# --- 설정: 새로운 파일명으로 깨끗하게 시작 ---
-RECORD_FILE = 'ygo_data.csv'
-META_FILE = 'metadata_config.json'
+# 페이지 설정 - 요청하신 대로 이름을 Rating으로 설정
+st.set_page_config(page_title="Rating", layout="wide")
 
-st.set_page_config(page_title="YGO Rating Analysis", layout="wide")
+st.title("📈 Rating 경기 기록 분석")
+st.info("CSV 파일을 업로드하여 '2026.03 레이팅' 데이터를 분석하세요.")
 
-# CSS: 표 중앙 정렬 및 디자인
-st.markdown("""
-    <style>
-    [data-testid="stDataFrameResizable"] div[role="grid"] div[role="row"] div { text-align: center !important; font-size: 13px !important; }
-    thead tr th { background-color: #f0f2f6 !important; font-weight: bold !important; }
-    </style>
-""", unsafe_allow_html=True)
+# 파일 업로드
+uploaded_file = st.file_uploader("2026.03 레이팅 - Record.csv 파일을 선택하세요", type="csv")
 
-def load_metadata():
-    if os.path.exists(META_FILE):
-        with open(META_FILE, 'r', encoding='utf-8') as f: return json.load(f)
-    return {"my_decks": ["KT", "Ennea"], "opp_decks": ["Mitsu", "Tenpai"], "archetypes": ["운영"], "win_loss_reasons": ["실력"], "target_cards": ["Ash"]}
+if uploaded_file is not None:
+    # 데이터 로드 (첫 번째 행은 컬럼명, 두 번째 행은 영어/보조 설명이므로 0, 1행 처리 필요)
+    # 2행부터 실제 데이터가 시작되므로 skiprows를 고려하거나 로드 후 필터링합니다.
+    df = pd.read_csv(uploaded_file)
+    
+    # 두 번째 행(영문 설명 행) 및 데이터가 없는 행 제거
+    # 'NO.' 컬럼이 숫자이거나 '경기'가 아닌 데이터만 남깁니다.
+    df = df[pd.to_numeric(df['NO.'], errors='coerce').notnull()]
+    
+    # 1. 상단 요약 지표 (Metrics)
+    total_games = len(df)
+    wins = len(df[df['결과'] == '승'])
+    win_rate = (wins / total_games) * 100 if total_games > 0 else 0
+    
+    # 실수(Mistake) 횟수 계산 (TRUE/FALSE 기반)
+    mistakes = df['실수'].astype(str).str.upper().value_counts().get('TRUE', 0)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("총 경기 수", f"{total_games}회")
+    col2.metric("총 승리", f"{wins}승")
+    col3.metric("전체 승률", f"{win_rate:.1f}%")
+    col4.metric("총 실수 횟수", f"{mistakes}회")
 
-def load_records():
-    cols = ["NO.", "날짜", "선후공", "결과", "세트", "점수", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
-    if os.path.exists(RECORD_FILE):
-        df = pd.read_csv(RECORD_FILE, dtype=str).fillna("")
-        for col in ["브릭", "실수"]:
-            if col in df.columns: df[col] = df[col].apply(lambda x: str(x).lower() in ['true', '1'])
-        return df
-    return pd.DataFrame(columns=cols)
+    st.divider()
 
-def save_records(df):
-    df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
-    st.session_state.df = df.reset_index(drop=True)
+    # 2. 시각화 레이아웃
+    col_left, col_right = st.columns(2)
 
-if 'metadata' not in st.session_state: st.session_state.metadata = load_metadata()
-if 'df' not in st.session_state: st.session_state.df = load_records()
+    with col_left:
+        st.subheader("선후공별 승률")
+        # 선후공에 따른 승률 계산
+        turn_stats = df.groupby(['선후공', '결과']).size().unstack(fill_value=0)
+        if '승' in turn_stats.columns:
+            fig_turn = px.bar(turn_stats, barmode='group', title="선/후공 승패 분포",
+                             color_discrete_map={'승': '#636EFA', '패': '#EF553B'})
+            st.plotly_chart(fig_turn, use_container_width=True)
+        else:
+            st.write("승리 데이터가 충분하지 않습니다.")
 
-st.title("📊 Match Record (New)")
+    with col_right:
+        st.subheader("상대 덱 분포 (Top 10)")
+        opp_counts = df['상대 덱'].value_counts().head(10)
+        fig_opp = px.pie(values=opp_counts.values, names=opp_counts.index, hole=0.4)
+        st.plotly_chart(fig_opp, use_container_width=True)
 
-if st.button("➕ Add New Match"):
-    new_no = str(len(st.session_state.df) + 1)
-    new_row = pd.DataFrame([{"NO.": new_no, "날짜": "", "선후공": "", "결과": "", "세트": "", "점수": "", "내 덱": "", "상대 덱": "", "아키타입": "", "승패 요인": "", "특정 카드": "", "브릭": False, "실수": False, "비고": ""}])
-    st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
-    save_records(st.session_state.df)
-    st.rerun()
+    # 3. 상세 분석 섹션
+    st.subheader("아키타입/상대 덱 상세 통계")
+    
+    # 상대 덱별 승률표
+    summary = df.groupby('상대 덱')['결과'].value_counts().unstack(fill_value=0)
+    if '승' not in summary.columns: summary['승'] = 0
+    if '패' not in summary.columns: summary['패'] = 0
+    
+    summary['총합'] = summary['승'] + summary['패']
+    summary['승률(%)'] = (summary['승'] / summary['총합'] * 100).round(1)
+    summary = summary.sort_values(by='총합', ascending=False)
+    
+    st.table(summary[['총합', '승', '패', '승률(%)']])
 
-edited = st.data_editor(
-    st.session_state.df, 
-    use_container_width=True, 
-    num_rows="dynamic", 
-    hide_index=True, 
-    key="editor_v3",
-    column_config={
-        "선후공": st.column_config.SelectboxColumn(options=["", "선", "후"]),
-        "결과": st.column_config.SelectboxColumn(options=["", "승", "패"]),
-        "내 덱": st.column_config.SelectboxColumn(options=[""] + st.session_state.metadata["my_decks"]),
-        "상대 덱": st.column_config.SelectboxColumn(options=[""] + st.session_state.metadata["opp_decks"]),
-        "브릭": st.column_config.CheckboxColumn(),
-        "실수": st.column_config.CheckboxColumn(),
-    }
-)
+    # 4. 특이사항 확인 (실수나 비고가 적힌 경기)
+    with st.expander("복기 필요한 경기 (실수 혹은 비고 있음)"):
+        note_df = df[(df['실수'].astype(str).str.upper() == 'TRUE') | (df['비고'].notna())]
+        st.write(note_df[['NO.', '상대 덱', '결과', '실수', '비고']])
 
-if not edited.equals(st.session_state.df):
-    save_records(edited)
-    st.rerun()
+else:
+    st.warning("파일을 업로드하면 대시보드가 활성화됩니다.")

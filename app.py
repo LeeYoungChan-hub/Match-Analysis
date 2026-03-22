@@ -97,87 +97,79 @@ page = st.sidebar.radio("메뉴", ["📊 Record", "📈 Analysis", "🖼️ Grap
 # --- PAGE: Record ---
 if page == "📊 Record":
     st.title("📊 Match Record")
+
+    # 1. [디자인] 기존 데이터프레임의 회색 헤더를 숨기는 CSS
+    st.markdown("""
+        <style>
+            /* 데이터 에디터의 기본 헤더(회색 줄)를 숨깁니다 */
+            thead { display: none !important; }
+            /* 표의 테두리와 간격을 조절하여 첫 줄이 헤더처럼 보이게 합니다 */
+            [data-testid="stDataFrameResizable"] { border-top: 2px solid #4CAF50; }
+        </style>
+    """, unsafe_allow_html=True)
     
-    # 1. 데이터 로드 및 통계 계산
+    # 2. 실제 데이터 통계 계산
     raw_df = st.session_state.df.copy()
-    # '경기' 행이 있다면 제외하고 순수 데이터만 추출 (계산용)
     real_data = raw_df[~raw_df['NO.'].isin(['경기'])].copy()
     
-    # 실시간 통계 (이미지 2행에 들어갈 값들)
     total_games = len(real_data[real_data['결과'].isin(['승', '패'])])
     f_rate = f"{(len(real_data[real_data['선후공'] == '선']) / total_games * 100):.2f}%" if total_games > 0 else "0.00%"
     w_rate = f"{(len(real_data[real_data['결과'] == '승']) / total_games * 100):.2f}%" if total_games > 0 else "0.00%"
     
-    # 브릭/실수 합계 (숫자로 계산)
+    # 브릭/실수 합계
     b_sum = str(real_data['브릭'].apply(lambda x: 1 if str(x).lower() in ['true', '1'] else 0).sum())
     m_sum = str(real_data['실수'].apply(lambda x: 1 if str(x).lower() in ['true', '1'] else 0).sum())
 
-    # 2. 이미지의 2행(초록/노란색 범주행) 생성
-    # 모든 값을 문자열로 통일하여 에러 방지
-    sub_header_row = {
+    # 3. 맨 윗줄이 될 요약 범주행 생성 (이미지의 초록색 줄 역할)
+    # 텍스트와 계산값을 조합하여 사용자님이 요청한 순서대로 배치
+    summary_header = {
         "NO.": "경기", "날짜": "Date", "선후공": f_rate, "결과": w_rate, 
         "세트": "Result", "점수": "Score", "내 덱": "Use.deck", "상대 덱": "Opp. deck", 
         "아키타입": "Plus Arch.", "승패 요인": "W/L Factor", "특정 카드": "Certain Card", 
         "브릭": b_sum, "실수": m_sum, "비고": "Detailed"
     }
 
-    # 3. 데이터프레임 타입 변환 트릭 (표시용)
-    # 실제 데이터의 True/False를 이미지처럼 체크표시(▣/□) 문자로 변환하여 글자와 섞이게 함
-    temp_real = real_data.copy()
+    # 4. 데이터 표시 준비 (브릭/실수는 체크박스 대신 기호로 표시하여 1행과 타입 통일)
+    temp_display = real_data.copy()
     for col in ["브릭", "실수"]:
-        temp_real[col] = temp_real[col].apply(lambda x: "▣" if str(x).lower() in ['true', '1'] else "□")
+        temp_display[col] = temp_display[col].apply(lambda x: "▣" if str(x).lower() in ['true', '1'] else "□")
 
-    # [범주행 + 변환된 데이터] 합치기
-    display_df = pd.concat([pd.DataFrame([sub_header_row]), temp_real], ignore_index=True)
+    # 요약행을 0번 인덱스에 삽입
+    final_display_df = pd.concat([pd.DataFrame([summary_header]), temp_display], ignore_index=True)
 
-    # 4. 새로운 경기 추가 버튼
-    if st.button("➕ 새로운 경기 추가"):
-        new_no = str(len(real_data) + 1)
-        new_row = pd.DataFrame([{
-            "NO.": new_no, "날짜": "", "선후공": "", "결과": "", "세트": "", "점수": "", 
-            "내 덱": "", "상대 덱": "", "아키타입": "", "승패 요인": "", "특정 카드": "", 
-            "브릭": False, "실수": False, "비고": ""
-        }])
-        st.session_state.df = pd.concat([real_data, new_row], ignore_index=True)
-        save_records(st.session_state.df)
-        st.rerun()
-
-    # 5. 데이터 에디터 (표 출력)
+    # 5. 데이터 에디터 출력
+    # hide_index=True와 CSS 효과로 인해 '경기/Date' 줄이 맨 위 헤더처럼 보입니다.
     edited = st.data_editor(
-        display_df, 
+        final_display_df, 
         use_container_width=True, 
         num_rows="dynamic", 
         hide_index=True, 
-        key="editor_vertical_category",
-        height=800,
+        key="editor_no_header_v1",
+        height=900,
         column_config={
-            "NO.": st.column_config.TextColumn("NO.", width=50),
-            "날짜": st.column_config.TextColumn("날짜", width=80),
-            "선후공": st.column_config.SelectboxColumn("선후공", options=["", "선", "후"], width=70),
-            "결과": st.column_config.SelectboxColumn("결과", options=["", "승", "패"], width=70),
-            "세트": st.column_config.SelectboxColumn("세트", options=["", "OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=90),
-            "점수": st.column_config.TextColumn("전적", width=60),
-            "내 덱": st.column_config.SelectboxColumn("내 덱", options=[""] + st.session_state.metadata["my_decks"], width=110),
-            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=[""] + st.session_state.metadata["opp_decks"], width=120),
-            "아키타입": st.column_config.SelectboxColumn("아키타입", options=[""] + st.session_state.metadata["archetypes"], width=110),
-            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=[""] + st.session_state.metadata["win_loss_reasons"], width=110),
-            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=[""] + st.session_state.metadata["target_cards"], width=110),
-            "브릭": st.column_config.TextColumn("브릭", width=50, help="▣ 또는 1 입력 시 체크"), 
-            "실수": st.column_config.TextColumn("실수", width=50, help="▣ 또는 1 입력 시 체크"),
-            "비고": st.column_config.TextColumn("비고", width=400)
+            "NO.": st.column_config.TextColumn(width=50),
+            "날짜": st.column_config.TextColumn(width=80),
+            "선후공": st.column_config.SelectboxColumn(options=["", "선", "후"], width=70),
+            "결과": st.column_config.SelectboxColumn(options=["", "승", "패"], width=70),
+            "세트": st.column_config.SelectboxColumn(options=["", "OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=90),
+            "점수": st.column_config.TextColumn(width=60),
+            "내 덱": st.column_config.SelectboxColumn(options=[""] + st.session_state.metadata["my_decks"], width=110),
+            "상대 덱": st.column_config.SelectboxColumn(options=[""] + st.session_state.metadata["opp_decks"], width=120),
+            "아키타입": st.column_config.SelectboxColumn(options=[""] + st.session_state.metadata["archetypes"], width=110),
+            "승패 요인": st.column_config.SelectboxColumn(options=[""] + st.session_state.metadata["win_loss_reasons"], width=110),
+            "특정 카드": st.column_config.SelectboxColumn(options=[""] + st.session_state.metadata["target_cards"], width=110),
+            "브릭": st.column_config.TextColumn(width=50), 
+            "실수": st.column_config.TextColumn(width=50),
+            "비고": st.column_config.TextColumn(width=400)
         }
     )
 
-    # 6. 변경 사항 저장 (변환된 문자를 다시 데이터로 복구)
-    if not edited.equals(display_df):
-        # 1행(범주 요약행) 제외
-        final_save = edited.iloc[1:].reset_index(drop=True)
-        
-        # '▣'나 '1'을 다시 불리언(True)으로 변환하여 CSV 저장
+    # 6. 저장 로직 (맨 위 요약행 제외 및 기호를 데이터로 복구)
+    if not edited.equals(final_display_df):
+        save_df = edited.iloc[1:].reset_index(drop=True)
         for col in ["브릭", "실수"]:
-            final_save[col] = final_save[col].apply(lambda x: str(x) in ['▣', '1', 'True', 'true'])
-            
-        save_records(final_save)
+            save_df[col] = save_df[col].apply(lambda x: str(x) in ['▣', '1', 'True', 'true'])
+        save_records(save_df)
         st.rerun()
         
 # --- PAGE: Analysis ---

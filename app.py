@@ -100,88 +100,56 @@ import pandas as pd
 # --- PAGE: Record ---
 if page == "📊 Record":
     st.title("📊 Match Record")
-
-    # 1. CSS: 기존의 쓸모없는 회색 헤더를 숨기고, 표의 첫 줄(요약행)을 강조
-    st.markdown("""
-        <style>
-            thead { display: none !important; } /* 회색 헤더 삭제 */
-            [data-testid="stDataFrameResizable"] div[role="grid"] div[role="row"]:nth-child(1) {
-                background-color: #d9ead3 !important; /* 이미지와 비슷한 초록색 배경 */
-                font-weight: bold !important;
-            }
-        </style>
-    """, unsafe_allow_html=True)
-
-    # 2. 데이터 및 통계 계산
-    raw_df = st.session_state.df.copy()
-    real_data = raw_df[raw_df['NO.'] != "경기"].copy() # '경기' 행 제외
     
-    total_games = len(real_data[real_data['결과'].isin(['승', '패'])])
-    f_rate = f"{(len(real_data[real_data['선후공'] == '선']) / total_games * 100):.2f}%" if total_games > 0 else "0.00%"
-    w_rate = f"{(len(real_data[real_data['결과'] == '승']) / total_games * 100):.2f}%" if total_games > 0 else "0.00%"
-    b_sum = str(real_data['브릭'].apply(lambda x: 1 if str(x).lower() in ['true', '1'] else 0).sum())
-    m_sum = str(real_data['실수'].apply(lambda x: 1 if str(x).lower() in ['true', '1'] else 0).sum())
+    # [조절] 표의 높이를 숫자로 지정 (예: 1000, 2000 등)
+    TABLE_HEIGHT = 1000 
 
-    # 3. 표의 첫 줄이 될 요약 정보 생성 (2단 헤더 역할)
-    summary_row = {
-        "NO.": "경기", "날짜": "Date", "선후공": f_rate, "결과": w_rate, 
-        "세트": "Result", "점수": "Score", "내 덱": "Use.deck", "상대 덱": "Opp. deck", 
-        "아키타입": "Plus Arch.", "승패 요인": "W/L Factor", "특정 카드": "Certain Card", 
-        "브릭": b_sum, "실수": m_sum, "비고": "Detailed"
-    }
+    # 1. 새로운 경기 추가 (완전 빈 행 생성)
+    if st.button("➕ 새로운 경기 추가"):
+        new_no = str(len(st.session_state.df) + 1)
+        
+        # 모든 값을 ""로 설정하여 None 노출 방지
+        new_row = pd.DataFrame([{
+            "NO.": new_no, "날짜": "", "선후공": "", "결과": "", 
+            "세트": "", "점수": "", "내 덱": "", "상대 덱": "", 
+            "아키타입": "", "승패 요인": "", "특정 카드": "", 
+            "브릭": False, "실수": False, "비고": ""
+        }])
+        
+        st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
+        save_records(st.session_state.df)
+        st.rerun()
 
-    # 표시용 데이터 변환 (브릭/실수 열의 체크박스 대신 기호 사용)
-    temp_display = real_data.copy()
-    for col in ["브릭", "실수"]:
-        temp_display[col] = temp_display[col].apply(lambda x: "▣" if str(x).lower() in ['true', '1'] else "□")
-
-    display_df = pd.concat([pd.DataFrame([summary_row]), temp_display], ignore_index=True)
-
-    # 4. [핵심] 상단에 아무런 st.columns()나 st.write() 없이 표만 바로 렌더링
+    # 2. 데이터 에디터 (표 안에 없는 값도 빈칸으로 보이도록 설정)
+    # options 앞에 [""]를 붙여 목록에 없는 상태를 빈 칸으로 표현합니다.
     edited = st.data_editor(
-        display_df, 
+        st.session_state.df, 
         use_container_width=True, 
         num_rows="dynamic", 
         hide_index=True, 
-        key="final_clean_editor",
-        height=900,
+        key="editor_final_no_none",
+        height=TABLE_HEIGHT,
         column_config={
-            # 라벨을 비워 기본 헤더 자리를 최소화함
-            "NO.": st.column_config.TextColumn("", width=50),
-            "날짜": st.column_config.TextColumn("", width=80),
-            "선후공": st.column_config.SelectboxColumn("", options=["", "선", "후"], width=70),
-            "결과": st.column_config.SelectboxColumn("", options=["", "승", "패"], width=70),
-            "세트": st.column_config.SelectboxColumn("", options=["", "OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=90),
-            "점수": st.column_config.TextColumn("", width=60),
-            "내 덱": st.column_config.SelectboxColumn("", options=[""] + st.session_state.metadata["my_decks"], width=110),
-            "상대 덱": st.column_config.SelectboxColumn("", options=[""] + st.session_state.metadata["opp_decks"], width=120),
-            "아키타입": st.column_config.SelectboxColumn("", options=[""] + st.session_state.metadata["archetypes"], width=110),
-            "승패 요인": st.column_config.SelectboxColumn("", options=[""] + st.session_state.metadata["win_loss_reasons"], width=110),
-            "특정 카드": st.column_config.SelectboxColumn("", options=[""] + st.session_state.metadata["target_cards"], width=110),
-            "브릭": st.column_config.TextColumn("", width=50), 
-            "실수": st.column_config.TextColumn("", width=50),
-            "비고": st.column_config.TextColumn("", width=400)
+            "NO.": st.column_config.TextColumn("NO.", width=50),
+            "날짜": st.column_config.TextColumn("날짜", width=70),
+            "선후공": st.column_config.SelectboxColumn("선후공", options=["", "선", "후"], width=70),
+            "결과": st.column_config.SelectboxColumn("결과", options=["", "승", "패"], width=60),
+            "세트": st.column_config.SelectboxColumn("세트", options=["", "OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=70),
+            "점수": st.column_config.TextColumn("점수", width=50),
+            "내 덱": st.column_config.SelectboxColumn("내 덱", options=[""] + st.session_state.metadata["my_decks"], width=110),
+            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=[""] + st.session_state.metadata["opp_decks"], width=130),
+            "아키타입": st.column_config.SelectboxColumn("아키타입", options=[""] + st.session_state.metadata["archetypes"], width=100),
+            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=[""] + st.session_state.metadata["win_loss_reasons"], width=100),
+            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=[""] + st.session_state.metadata["target_cards"], width=100),
+            "브릭": st.column_config.CheckboxColumn("브릭", width=60),
+            "실수": st.column_config.CheckboxColumn("실수", width=60),
+            "비고": st.column_config.TextColumn("비고", width=450)
         }
     )
 
-    # 5. 저장 로직
-    if not edited.equals(display_df):
-        save_df = edited.iloc[1:].reset_index(drop=True)
-        for col in ["브릭", "실수"]:
-            save_df[col] = save_df[col].apply(lambda x: str(x) in ['▣', '1', 'True', 'true'])
-        save_records(save_df)
-        st.rerun()
-
-    # 6. 버튼 (표 아래 배치)
-    if st.button("➕ 새로운 경기 추가"):
-        new_no = str(len(real_data) + 1)
-        new_row = pd.DataFrame([{
-            "NO.": new_no, "날짜": "", "선후공": "", "결과": "", "세트": "", "점수": "", 
-            "내 덱": "", "상대 덱": "", "아키타입": "", "승패 요인": "", "특정 카드": "", 
-            "브릭": False, "실수": False, "비고": ""
-        }])
-        st.session_state.df = pd.concat([real_data, new_row], ignore_index=True)
-        save_records(st.session_state.df)
+    # 3. 변경 사항 저장
+    if not edited.equals(st.session_state.df):
+        save_records(edited)
         st.rerun()
         
 # --- PAGE: Analysis ---

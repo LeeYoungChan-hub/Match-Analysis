@@ -9,7 +9,7 @@ META_FILE = 'metadata_config.json'
 
 st.set_page_config(page_title="YGO Rating Analysis", layout="wide")
 
-# --- 2. [디자인] 인덱스 숨기기 및 분석 레이아웃 ---
+# --- 2. [디자인] 시스템 인덱스 숨기기 및 레이아웃 ---
 st.markdown("""
     <style>
     [data-testid="stTableIdxColumn"] { display: none !important; }
@@ -21,9 +21,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. 데이터 로직 (KeyError 방지 강화) ---
+# --- 3. 데이터 로직 (KeyError 및 누락 방지) ---
 def load_metadata():
-    # 모든 필수 키를 포함한 기본값 정의
     default_meta = {
         "my_decks": ["KT", "Ennea", "Maliss", "Tenpai"],
         "opp_decks": ["KT", "Ennea", "Maliss", "Tenpai", "Labrynth", "Branded"],
@@ -31,18 +30,14 @@ def load_metadata():
         "win_loss_reasons": ["상대 패", "자신 실력", "특정 카드", "핸드 말림", "기타"],
         "target_cards": ["증식의 G", "하루 우라라", "무한포영", "니비루", "드롤"]
     }
-    
     if os.path.exists(META_FILE):
         with open(META_FILE, 'r', encoding='utf-8') as f:
             try:
-                saved_meta = json.load(f)
-                # 저장된 파일에 누락된 키가 있다면 기본값으로 채워넣음
+                saved = json.load(f)
                 for key in default_meta:
-                    if key not in saved_meta:
-                        saved_meta[key] = default_meta[key]
-                return saved_meta
-            except:
-                pass
+                    if key not in saved: saved[key] = default_meta[key]
+                return saved
+            except: pass
     return default_meta
 
 def load_records():
@@ -65,7 +60,7 @@ def save_data(df):
 def render_analysis_table(target_df):
     calc_df = target_df[target_df['결과'].isin(['승', '패'])]
     total = len(calc_df)
-    if total == 0: return "<p style='color:gray;'>분석할 데이터가 없습니다.</p>"
+    if total == 0: return "<p style='color:gray;'>데이터가 없습니다.</p>"
     wins = len(calc_df[calc_df['결과'] == '승'])
     losses = len(calc_df[calc_df['결과'] == '패'])
     win_rate = (wins / total * 100)
@@ -74,7 +69,7 @@ def render_analysis_table(target_df):
     s_win = len(s_df[s_df['결과'] == '승'])
     return f"""
         <table class="styled-table">
-            <tr><td>게임 수</td><td>전체 승률</td><td>승리</td><td>패배</td></tr>
+            <tr><td>전체 판수</td><td>전체 승률</td><td>승리</td><td>패배</td></tr>
             <tr><td>{total}</td><td>{win_rate:.1f}%</td><td>{wins}</td><td>{losses}</td></tr>
             <tr><td>선공 승률</td><td>후공 승률</td><td>선공 수</td><td>후공 수</td></tr>
             <tr><td>{(f_win/len(f_df)*100 if len(f_df)>0 else 0):.1f}%</td><td>{(s_win/len(s_df)*100 if len(s_df)>0 else 0):.1f}%</td><td>{len(f_df)}</td><td>{len(s_df)}</td></tr>
@@ -91,32 +86,22 @@ page = st.sidebar.radio("메뉴", ["📊 기록", "📈 분석", "⚙️ 설정"
 
 if page == "📊 기록":
     st.title("📊 전적 기록")
-    
     if st.button("➕ 새로운 경기 추가"):
         meta = st.session_state.metadata
         new_row = pd.DataFrame([{
-            "NO.": "", 
-            "날짜": pd.Timestamp.now().strftime("%m.%d"),
+            "NO.": "", "날짜": pd.Timestamp.now().strftime("%m.%d"),
             "선후공": "선", "결과": "승", "세트 전적": "OO",
-            "내 덱": meta["my_decks"][0],
-            "상대 덱": meta["opp_decks"][0],
-            "아키타입": meta["archetypes"][0],
-            "승패 요인": meta["win_loss_reasons"][0],
-            "특정 카드": meta["target_cards"][0],
-            "브릭": False, "실수": False, "비고": ""
+            "내 덱": meta["my_decks"][0], "상대 덱": meta["opp_decks"][0],
+            "아키타입": meta["archetypes"][0], "승패 요인": meta["win_loss_reasons"][0],
+            "특정 카드": meta["target_cards"][0], "브릭": False, "실수": False, "비고": ""
         }])
         st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
         save_data(st.session_state.df)
         st.rerun()
 
-    # 안전하게 옵션 가져오기 (dict.get 사용)
     meta = st.session_state.metadata
     edited_df = st.data_editor(
-        st.session_state.df,
-        use_container_width=True,
-        num_rows="dynamic",
-        hide_index=True,
-        key="ygo_editor_v5",
+        st.session_state.df, use_container_width=True, num_rows="dynamic", hide_index=True, key="ygo_editor_v6",
         column_config={
             "NO.": st.column_config.TextColumn("NO."),
             "날짜": st.column_config.TextColumn("날짜"),
@@ -128,12 +113,10 @@ if page == "📊 기록":
             "아키타입": st.column_config.SelectboxColumn("아키타입", options=meta.get("archetypes", [])),
             "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=meta.get("win_loss_reasons", [])),
             "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=meta.get("target_cards", [])),
-            "브릭": st.column_config.CheckboxColumn("브릭"),
-            "실수": st.column_config.CheckboxColumn("실수"),
+            "브릭": st.column_config.CheckboxColumn("브릭"), "실수": st.column_config.CheckboxColumn("실수"),
             "비고": st.column_config.TextColumn("비고")
         }
     )
-
     if not edited_df.equals(st.session_state.df):
         save_data(edited_df)
         st.rerun()
@@ -145,7 +128,6 @@ elif page == "📈 분석":
         st.markdown('<div class="analysis-wrapper">', unsafe_allow_html=True)
         st.subheader("전체 통계")
         st.markdown(render_analysis_table(df_ana), unsafe_allow_html=True)
-        
         st.subheader("내 덱별 상세 분석")
         selected = st.selectbox("분석할 덱 선택", st.session_state.metadata.get("my_decks", []), label_visibility="collapsed")
         st.markdown(render_analysis_table(df_ana[df_ana['내 덱'] == selected]), unsafe_allow_html=True)
@@ -172,4 +154,7 @@ else:
             "target_cards": [x.strip() for x in new_cards.split(",") if x.strip()]
         }
         with open(META_FILE, 'w', encoding='utf-8') as f:
-            json.dump(st.session_state.metadata, f
+            # ✅ 괄호 닫기 오류(SyntaxError)가 발생했던 부분 수정 완료
+            json.dump(st.session_state.metadata, f, ensure_ascii=False, indent=4)
+        st.success("설정 저장 완료!")
+        st.rerun()

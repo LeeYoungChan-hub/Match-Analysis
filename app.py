@@ -4,10 +4,10 @@ import pandas as pd
 # 1. 페이지 설정
 st.set_page_config(page_title="Rating", layout="wide")
 
-# 2. 데이터 초기화 (Setting 값 포함)
+# 2. 데이터 및 설정값 초기화
 FILENAME = "2026.03 레이팅 - Record.csv"
 
-# 세션 상태 초기화
+# 세션 상태: 경기 기록 데이터
 if 'df' not in st.session_state:
     try:
         st.session_state.df = pd.read_csv(FILENAME)
@@ -21,7 +21,7 @@ if 'df' not in st.session_state:
         }
         st.session_state.df = pd.DataFrame([sub_label_row], columns=columns)
 
-# 드롭다운 옵션 초기화 (Setting에서 관리할 항목들)
+# 세션 상태: Setting 드롭다운 옵션
 if 'options' not in st.session_state:
     st.session_state.options = {
         "내 덱": ["KT", "SwoS", "Synchron"],
@@ -31,16 +31,14 @@ if 'options' not in st.session_state:
         "아키타입": ["60", "Arch"]
     }
 
-# 3. 사이드바 메뉴 (페이지 이동)
-menu = st.sidebar.selectbox("메뉴 선택", ["Record", "Setting"])
+# 3. 스프레드시트 스타일의 탭 생성
+tab1, tab2 = st.tabs(["📊 Record", "⚙️ Setting"])
 
 # ---------------------------------------------------------
-# PAGE 1: Record (기존 기록 페이지)
+# TAB 1: Record (기존 기록 페이지)
 # ---------------------------------------------------------
-if menu == "Record":
-    st.title("📝 Record")
-    
-    # 통합된 데이터 에디터
+with tab1:
+    # 통합된 데이터 에디터 (상단 문구 삭제)
     edited_df = st.data_editor(
         st.session_state.df,
         num_rows="dynamic",
@@ -49,7 +47,7 @@ if menu == "Record":
             "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"]),
             "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"]),
             "세트 전적": st.column_config.SelectboxColumn("세트 전적", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"]),
-            # Setting 페이지에서 설정한 드롭다운 값 적용
+            # Setting 탭에서 설정한 값 실시간 반영
             "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.options["내 덱"]),
             "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.options["상대 덱"]),
             "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.options["특정 카드"]),
@@ -60,29 +58,27 @@ if menu == "Record":
 
     col_save, col_down = st.columns([1, 4])
     with col_save:
-        if st.button("💾 저장"):
+        if st.button("💾 저장", key="save_btn"):
             st.session_state.df = edited_df
-            st.success("저장 완료")
+            st.success("데이터가 저장되었습니다.")
     with col_down:
         csv = edited_df.to_csv(index=False).encode('utf-8-sig')
         st.download_button("📥 CSV 다운로드", data=csv, file_name=FILENAME, mime='text/csv')
 
 # ---------------------------------------------------------
-# PAGE 2: Setting (드롭다운 항목 설정 페이지)
+# TAB 2: Setting (드롭다운 항목 설정 페이지)
 # ---------------------------------------------------------
-elif menu == "Setting":
-    st.title("⚙️ Setting")
-    st.write("Record 페이지 드롭다운에 표시될 항목들을 관리합니다.")
-    st.info("각 항목에 대해 한 줄에 하나씩 입력해 주세요.")
+with tab2:
+    st.write("### 드롭다운 리스트 설정")
+    st.caption("항목을 한 줄에 하나씩 입력하고 아래 [설정 적용] 버튼을 눌러주세요.")
 
     col1, col2, col3 = st.columns(3)
-    
     with col1:
-        my_decks = st.text_area("내 덱 목록", value="\n".join(st.session_state.options["내 덱"]), height=200)
+        my_decks = st.text_area("내 덱 목록", value="\n".join(st.session_state.options["내 덱"]), height=250)
     with col2:
-        opp_decks = st.text_area("상대 덱 목록", value="\n".join(st.session_state.options["상대 덱"]), height=200)
+        opp_decks = st.text_area("상대 덱 목록", value="\n".join(st.session_state.options["상대 덱"]), height=250)
     with col3:
-        specific_cards = st.text_area("특정 카드 목록", value="\n".join(st.session_state.options["특정 카드"]), height=200)
+        specific_cards = st.text_area("특정 카드 목록", value="\n".join(st.session_state.options["특정 카드"]), height=250)
     
     col4, col5 = st.columns(2)
     with col4:
@@ -90,11 +86,11 @@ elif menu == "Setting":
     with col5:
         archetypes = st.text_area("아키타입 목록", value="\n".join(st.session_state.options["아키타입"]), height=150)
 
-    if st.button("✅ 설정 적용"):
-        # 줄바꿈을 기준으로 리스트화 (빈 줄 제외)
+    if st.button("✅ 설정 적용", key="apply_btn"):
+        # 줄바꿈 기준 리스트 변환 및 세션 저장
         st.session_state.options["내 덱"] = [x.strip() for x in my_decks.split("\n") if x.strip()]
         st.session_state.options["상대 덱"] = [x.strip() for x in opp_decks.split("\n") if x.strip()]
         st.session_state.options["특정 카드"] = [x.strip() for x in specific_cards.split("\n") if x.strip()]
         st.session_state.options["승패 요인"] = [x.strip() for x in win_loss_factors.split("\n") if x.strip()]
         st.session_state.options["아키타입"] = [x.strip() for x in archetypes.split("\n") if x.strip()]
-        st.success("설정이 적용되었습니다. Record 페이지에서 확인하세요!")
+        st.success("설정이 적용되었습니다. Record 탭에서 확인하세요!")

@@ -160,34 +160,40 @@ if page == "📊 Record":
 elif page == "📈 Analysis":
     st.title("📈 Rating Analysis")
     
-    # 1. 데이터 로드 및 전처리 (CSV 2행의 텍스트 행 제거)
+    # 1. 데이터 로드 및 정밀 전처리
     raw_df = load_records()
     if not raw_df.empty:
-        # NO. 컬럼이 숫자인 행만 남깁니다.
+        # NO. 컬럼이 숫자인 행만 남겨서 '경기', 'Date' 등 설명글 행을 제거
         df_ana = raw_df[pd.to_numeric(raw_df['NO.'], errors='coerce').notnull()].copy()
     else:
         df_ana = pd.DataFrame()
     
     if not df_ana.empty:
-        # 상단 Overall 요약
+        # 상단 요약
         st.markdown('<div class="analysis-wrapper">', unsafe_allow_html=True)
         st.markdown(render_styled_table("Overall Summary", df_ana), unsafe_allow_html=True)
         
+        # 내 덱 선택 필터
         st.subheader("내 덱 선택")
         sel_my = st.selectbox("분석할 내 덱 선택", st.session_state.metadata["my_decks"], label_visibility="collapsed", key="ana_sel_my")
         st.markdown('</div>', unsafe_allow_html=True)
 
         st.divider()
 
-        # --- [2번 표: Matchup Analysis - 스프레드시트 방식 완벽 재현] ---
+        # --- [2번 표: Matchup Analysis - 스프레드시트 완벽 재현] ---
         st.subheader(f"📊 {sel_my} Matchup Analysis")
         
-        # 필터링: 선택한 내 덱 + 결과(승/패)가 있는 데이터
+        # 필터링: 선택한 내 덱 + 결과가 '승' 또는 '패'인 데이터만 사용
         my_df = df_ana[df_ana['내 덱'] == sel_my]
         calc_df = my_df[my_df['결과'].isin(['승', '패'])]
-        all_opp_decks = st.session_state.metadata.get("opp_decks", [])
+        
+        # 상대 덱 리스트 가져오기 (설정된 덱 + 데이터에 있는 모든 덱)
+        data_opp_decks = calc_df['상대 덱'].dropna().unique().tolist()
+        setting_opp_decks = st.session_state.metadata.get("opp_decks", [])
+        # 설정된 덱을 우선순위로 두고, 데이터에만 있는 덱도 추가하여 '각각' 표시
+        all_display_decks = setting_opp_decks + [d for d in data_opp_decks if d not in setting_opp_decks]
 
-        if all_opp_decks:
+        if not calc_df.empty:
             total_g_all = len(calc_df)
             
             # [A] 상단 Total 합계 행 계산
@@ -197,10 +203,13 @@ elif page == "📈 Analysis":
             ts_a = calc_df[calc_df['선후공'] == '후']
             tfw_a = (len(tf_a[tf_a['결과'] == '승']) / len(tf_a) * 100) if len(tf_a) > 0 else 0
             tsw_a = (len(ts_a[ts_a['결과'] == '승']) / len(ts_a) * 100) if len(ts_a) > 0 else 0
-            arch_total = len(calc_df[calc_df['아키타입'].fillna('').str.strip() != ""])
+            # 아키타입 사용 수 (빈칸이 아닌 데이터 개수)
+            arch_total = len(calc_df[calc_df['아키타입'].fillna('').astype(str).str.strip() != ""])
 
-            # 표 본문(rows) 생성
-            rows_html = f"""
+            # 개별 덱 행 생성 (여기에 모든 덱을 각각 나눠서 추가)
+            rows_html = ""
+            # Total 행 추가
+            rows_html += f"""
                 <tr style="background-color: #fff2cc; font-weight: bold;">
                     <td style="padding: 8px; border: 1px solid #dee2e6;">Total</td>
                     <td style="padding: 8px; border: 1px solid #dee2e6;">{total_g_all}</td>
@@ -214,8 +223,8 @@ elif page == "📈 Analysis":
                 </tr>
             """
 
-            # [B] 개별 덱 행 생성
-            for opp in all_opp_decks:
+            # 개별 상대 덱 데이터 루프
+            for opp in all_display_decks:
                 opp_df = calc_df[calc_df['상대 덱'] == opp]
                 g = len(opp_df)
                 
@@ -226,9 +235,8 @@ elif page == "📈 Analysis":
                     s_df = opp_df[opp_df['선후공'] == '후']
                     fw = (len(f_df[f_df['결과'] == '승']) / len(f_df) * 100) if len(f_df) > 0 else 0
                     sw = (len(s_df[s_df['결과'] == '승']) / len(s_df) * 100) if len(s_df) > 0 else 0
-                    sh = (g / total_g_all * 100) if total_g_all > 0 else 0
-                    # 아키타입 값이 비어있지 않은 데이터 수
-                    arch_cnt = len(opp_df[opp_df['아키타입'].fillna('').str.strip() != ""])
+                    sh = (g / total_g_all * 100)
+                    arch_cnt = len(opp_df[opp_df['아키타입'].fillna('').astype(str).str.strip() != ""])
                     
                     rows_html += f"""
                     <tr>
@@ -243,8 +251,8 @@ elif page == "📈 Analysis":
                         <td style="padding: 8px; border: 1px solid #dee2e6;">{arch_cnt}</td>
                     </tr>
                     """
-                else:
-                    # 데이터 없는 덱 처리
+                elif opp in setting_opp_decks:
+                    # 데이터는 없지만 설정된 덱은 0으로 표시
                     rows_html += f"""
                     <tr style="color: #adb5bd;">
                         <td style="padding: 8px; border: 1px solid #dee2e6; text-align: left; padding-left: 10px;">{opp}</td>
@@ -254,8 +262,8 @@ elif page == "📈 Analysis":
                     </tr>
                     """
 
-            # 최종 테이블 HTML 결합 및 출력
-            table_html = f"""
+            # 전체 테이블 렌더링 (st.markdown을 사용해야 표로 보입니다)
+            final_table_html = f"""
             <table style="width:100%; border-collapse: collapse; text-align: center; border: 1px solid #dee2e6; font-size: 14px;">
                 <thead>
                     <tr style="background-color: #fbbc04; color: black; font-weight: bold;">
@@ -275,11 +283,14 @@ elif page == "📈 Analysis":
                 </tbody>
             </table>
             """
-            st.markdown(table_html, unsafe_allow_html=True)
+            st.markdown(final_table_html, unsafe_allow_html=True)
             
+        else:
+            st.info("선택한 내 덱에 대한 유효한 경기 기록이 없습니다.")
+
         st.divider()
 
-        # 4. 특정 매치업 상세 분석 (기존 복구 코드)
+        # 3. 특정 매치업 상세 분석
         st.subheader("🎯 특정 매치업 상세 분석")
         c1, c2 = st.columns(2)
         with c1: m_my = st.selectbox("Use.Deck", st.session_state.metadata["my_decks"], key="spec_my")

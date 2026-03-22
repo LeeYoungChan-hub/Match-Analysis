@@ -101,46 +101,86 @@ if page == "📊 Record":
     # [설정] 표 높이 조절
     TABLE_HEIGHT = 1000 
     
-    # --- 1. 실시간 요약 통계 계산 ---
-    df_calc = st.session_state.df.copy()
-    total_games = len(df_calc[df_calc['결과'].isin(['승', '패'])])
+    # 1. 실시간 요약 데이터 계산
+    # 실제 데이터만 필터링 (요약행 제외)
+    raw_data = st.session_state.df.copy()
+    # '경기', 'Date' 등의 텍스트가 들어간 행은 제외하고 숫자/데이터가 있는 행만 계산
+    real_df = raw_data[~raw_data['NO.'].isin(['경기', 'NO.'])] 
     
-    # 선공률 계산
-    first_count = len(df_calc[df_calc['선후공'] == '선'])
-    first_rate = f"{(first_count / total_games * 100):.1f}%" if total_games > 0 else "0%"
+    total_games = len(real_df[real_df['결과'].isin(['승', '패'])])
     
-    # 승률 계산
-    win_count = len(df_calc[df_calc['결과'] == '승'])
-    win_rate = f"{(win_count / total_games * 100):.1f}%" if total_games > 0 else "0%"
-    
-    # 브릭/실수 합계 (Boolean 컬럼 합산)
-    total_bricks = df_calc['브릭'].sum() if '브릭' in df_calc.columns else 0
-    total_mistakes = df_calc['실수'].sum() if '실수' in df_calc.columns else 0
+    # 선공률/승률/브릭/실수 계산
+    first_rate = f"{(len(real_df[real_df['선후공'] == '선']) / total_games * 100):.1f}%" if total_games > 0 else "0%"
+    win_rate = f"{(len(real_df[real_df['결과'] == '승']) / total_games * 100):.1f}%" if total_games > 0 else "0%"
+    total_bricks = real_df['브릭'].astype(bool).sum() if not real_df.empty else 0
+    total_mistakes = real_df['실수'].astype(bool).sum() if not real_df.empty else 0
 
-    # --- 2. 상단 요약 정보 (Info/Metrics) ---
-    # 요청하신 2층 구조를 시각적으로 보여주기 위해 표 형식의 컨테이너를 사용합니다.
-    st.markdown(f"""
-    <table style="width:100%; border-collapse: collapse; text-align: center; font-size: 13px; margin-bottom: 10px;">
-        <tr style="background-color: #f0f2f6; font-weight: bold;">
-            <td>NO.</td><td>날짜</td><td>선후공</td><td>결과</td><td>세트</td><td>점수</td><td>내 덱</td><td>상대 덱</td><td>아키타입</td><td>승패 요인</td><td>특정 카드</td><td>브릭</td><td>실수</td><td>비고</td>
-        </tr>
-        <tr style="background-color: #ffffff;">
-            <td><b>경기</b></td><td><b>Date</b></td><td><b style="color:blue;">{first_rate}</b></td><td><b style="color:red;">{win_rate}</b></td><td><b>Result</b></td><td><b>Score</b></td><td><b>Use.deck</b></td><td><b>Opp.deck</b></td><td><b>Plus Arch.</b></td><td><b>W/L Factor</b></td><td><b>Certain Card</b></td><td><b style="color:orange;">{total_bricks}</b></td><td><b style="color:orange;">{total_mistakes}</b></td><td><b>Detailed</b></td>
-        </tr>
-    </table>
-    """, unsafe_allow_html=True)
+    # 2. 요약용 상단 2개의 행 생성
+    # 첫 번째 줄: 한글 타이틀
+    row1 = {
+        "NO.": "경기", "날짜": "날짜", "선후공": "선후공", "결과": "결과", "세트": "세트", 
+        "점수": "전적", "내 덱": "내 덱", "상대 덱": "상대 덱", "아키타입": "아키타입", 
+        "승패 요인": "승패 요인", "특정 카드": "특정 카드", "브릭": "브릭", "실수": "실수", "비고": "비고"
+    }
+    # 두 번째 줄: 영어 타이틀 및 실시간 계산값
+    row2 = {
+        "NO.": "Date", "날짜": "Date", "선후공": first_rate, "결과": win_rate, "세트": "Result", 
+        "점수": "Score", "내 덱": "Use.deck", "상대 덱": "Opp. deck", "아키타입": "Plus Arch.", 
+        "승패 요인": "W/L Factor", "특정 카드": "Certain Card", "브릭": str(total_bricks), "실수": str(total_mistakes), "비고": "Detailed"
+    }
+    
+    # 요약행과 실제 데이터를 합쳐서 에디터에 표시 (표시용 데이터프레임)
+    display_df = pd.concat([pd.DataFrame([row1, row2]), real_df], ignore_index=True)
 
-    # --- 3. 새로운 경기 추가 버튼 ---
+    # 3. 새로운 경기 추가 버튼
     if st.button("➕ 새로운 경기 추가"):
-        new_no = str(len(st.session_state.df) + 1)
+        new_no = str(len(real_df) + 1)
         new_row = pd.DataFrame([{
             "NO.": new_no, "날짜": "", "선후공": "", "결과": "", 
             "세트": "", "점수": "", "내 덱": "", "상대 덱": "", 
             "아키타입": "", "승패 요인": "", "특정 카드": "", 
             "브릭": False, "실수": False, "비고": ""
         }])
-        st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
+        # 실제 데이터에 추가 후 저장
+        st.session_state.df = pd.concat([real_df, new_row], ignore_index=True)
         save_records(st.session_state.df)
+        st.rerun()
+
+    # 4. 데이터 에디터
+    edited = st.data_editor(
+        display_df, 
+        use_container_width=True, 
+        num_rows="dynamic", 
+        hide_index=True, 
+        key="editor_integrated_summary",
+        height=TABLE_HEIGHT,
+        column_config={
+            "NO.": st.column_config.TextColumn("NO.", width=50),
+            "날짜": st.column_config.TextColumn("날짜", width=70),
+            "선후공": st.column_config.SelectboxColumn("선후공", options=["", "선", "후"], width=70),
+            "결과": st.column_config.SelectboxColumn("결과", options=["", "승", "패"], width=60),
+            "세트": st.column_config.SelectboxColumn("세트", options=["", "OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=70),
+            "점수": st.column_config.TextColumn("점수", width=60),
+            "내 덱": st.column_config.SelectboxColumn("내 덱", options=[""] + st.session_state.metadata["my_decks"], width=110),
+            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=[""] + st.session_state.metadata["opp_decks"], width=130),
+            "아키타입": st.column_config.SelectboxColumn("아키타입", options=[""] + st.session_state.metadata["archetypes"], width=110),
+            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=[""] + st.session_state.metadata["win_loss_reasons"], width=110),
+            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=[""] + st.session_state.metadata["target_cards"], width=110),
+            "브릭": st.column_config.TextColumn("브릭", width=60), # 요약행의 숫자를 보여주기 위해 TextColumn으로 변경
+            "실수": st.column_config.TextColumn("실수", width=60),
+            "비고": st.column_config.TextColumn("비고", width=450)
+        }
+    )
+
+    # 5. 저장 로직 (요약행 제외하고 실제 데이터만 추출하여 저장)
+    if not edited.equals(display_df):
+        # 상단 2개 행을 제외한 데이터만 추출
+        final_save_df = edited.iloc[2:].reset_index(drop=True)
+        # 브릭/실수 컬럼이 텍스트로 변했을 수 있으므로 다시 불리언 변환 시도
+        for col in ["브릭", "실수"]:
+            final_save_df[col] = final_save_df[col].apply(lambda x: str(x).lower() in ['true', '1', 'checked'])
+            
+        save_records(final_save_df)
         st.rerun()
 
     # --- 4. 메인 데이터 에디터 ---

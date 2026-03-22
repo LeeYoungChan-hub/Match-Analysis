@@ -14,7 +14,6 @@ st.markdown("""
     <style>
     /* 시스템 인덱스 열(0,1,2...) 절대 표시 안함 */
     [data-testid="stTableIdxColumn"] { display: none !important; }
-    .css-1vt4y65 { display: none !important; } 
     
     /* 분석 페이지 1/3 너비 설정 */
     .analysis-wrapper { width: 33%; margin-left: 0; }
@@ -25,7 +24,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. 데이터 로직 (수동 관리 모드) ---
+# --- 3. 데이터 로직 ---
 def load_metadata():
     default_meta = {
         "my_decks": ["KT", "Ennea", "Maliss", "Tenpai"],
@@ -44,12 +43,9 @@ def load_records():
     cols = ["NO.", "날짜", "선후공", "결과", "세트 전적", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
     if os.path.exists(RECORD_FILE):
         try:
-            # 모든 데이터를 문자열로 로드하여 타입 충돌 방지
             df = pd.read_csv(RECORD_FILE, dtype=str).fillna("")
-            # 필요한 컬럼이 없을 경우 빈 칸으로 생성
             for col in cols:
                 if col not in df.columns: df[col] = ""
-            # 체크박스 컬럼만 논리값으로 변환
             for col in ["브릭", "실수"]:
                 df[col] = df[col].apply(lambda x: True if str(x).lower() in ['true', '1'] else False)
             return df[cols]
@@ -57,9 +53,28 @@ def load_records():
     return pd.DataFrame(columns=cols)
 
 def save_data(df):
-    # 자동 넘버링을 하지 않고 유저가 입력한 그대로 저장
     df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
     st.session_state.df = df
+
+# 분석용 테이블 생성 함수
+def render_analysis_table(target_df):
+    calc_df = target_df[target_df['결과'].isin(['승', '패'])]
+    total = len(calc_df)
+    if total == 0: return "<p style='color:gray;'>분석할 데이터가 없습니다.</p>"
+    wins = len(calc_df[calc_df['결과'] == '승'])
+    losses = len(calc_df[calc_df['결과'] == '패'])
+    win_rate = (wins / total * 100)
+    f_df, s_df = calc_df[calc_df['선후공'] == '선'], calc_df[calc_df['선후공'] == '후']
+    f_win = len(f_df[f_df['결과'] == '승'])
+    s_win = len(s_df[s_df['결과'] == '승'])
+    return f"""
+        <table class="styled-table">
+            <tr><td>게임 수</td><td>전체 승률</td><td>승리</td><td>패배</td></tr>
+            <tr><td>{total}</td><td>{win_rate:.1f}%</td><td>{wins}</td><td>{losses}</td></tr>
+            <tr><td>선공 승률</td><td>후공 승률</td><td>선공 수</td><td>후공 수</td></tr>
+            <tr><td>{(f_win/len(f_df)*100 if len(f_df)>0 else 0):.1f}%</td><td>{(s_win/len(s_df)*100 if len(s_df)>0 else 0):.1f}%</td><td>{len(f_df)}</td><td>{len(s_df)}</td></tr>
+        </table>
+    """
 
 # --- 4. 메인 로직 ---
 if 'metadata' not in st.session_state:
@@ -73,7 +88,6 @@ if page == "📊 기록":
     st.title("📊 전적 기록")
     
     if st.button("➕ 새로운 경기 추가"):
-        # 새 행 추가 시 NO.는 비워둠 (직접 입력)
         new_row = pd.DataFrame([{
             "NO.": "", 
             "날짜": pd.Timestamp.now().strftime("%m.%d"),
@@ -89,19 +103,18 @@ if page == "📊 기록":
         save_data(st.session_state.df)
         st.rerun()
 
-    # 데이터 에디터 설정
     edited_df = st.data_editor(
         st.session_state.df,
         use_container_width=True,
         num_rows="dynamic",
-        hide_index=True,  # 시스템 인덱스 숨김
-        key="ygo_editor_final",
+        hide_index=True,
+        key="ygo_editor_v4",
         column_config={
-            "NO.": st.column_config.TextColumn("NO."), # 직접 입력 가능하도록 Text로 설정
+            "NO.": st.column_config.TextColumn("NO."),
             "날짜": st.column_config.TextColumn("날짜"),
             "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"]),
             "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"]),
-            "세트 전적": st.column_config.SelectboxColumn("세트 전적", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"]), # 복구 완료
+            "세트 전적": st.column_config.SelectboxColumn("세트 전적", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"]),
             "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata["my_decks"]),
             "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata["opp_decks"]),
             "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata["archetypes"]),
@@ -123,10 +136,15 @@ elif page == "📈 분석":
     if not df_ana.empty:
         st.markdown('<div class="analysis-wrapper">', unsafe_allow_html=True)
         st.subheader("전체 통계")
-        # (통계 테이블 렌더링 로직 생략 없이 그대로 유지...)
+        st.markdown(render_analysis_table(df_ana), unsafe_allow_html=True)
+        
+        st.subheader("내 덱별 상세 분석")
+        selected = st.selectbox("분석할 덱 선택", st.session_state.metadata["my_decks"], label_visibility="collapsed")
+        st.markdown(render_analysis_table(df_ana[df_ana['내 덱'] == selected]), unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-else: st.title("⚙️ Rating 설정")
+else:
+    st.title("⚙️ Rating 설정")
     meta = st.session_state.metadata
     c1, c2 = st.columns(2)
     with c1: new_my = st.text_area("내 덱 (쉼표 구분)", ", ".join(meta.get("my_decks", [])))

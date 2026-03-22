@@ -9,7 +9,6 @@ st.title("🗂️ Rating 경기 기록부")
 
 # 2. 파일 로드 로직
 # GitHub에 처음 올릴 때 파일이 없으면 빈 양식을 만듭니다.
-FILENAME = "2026.03 레이팅 - Record.csv"
 
 def load_data():
     try:

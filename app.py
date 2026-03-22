@@ -161,7 +161,7 @@ def create_4_row_table(target_df):
 # ---------------------------------------------------------
 # [페이지 3] Rating (설정) - 신규 추가
 # ---------------------------------------------------------
-else:  # ⚙️ Rating (설정)
+elif page:  # ⚙️ Rating (설정)
     st.title("⚙️ Rating 설정")
     meta = st.session_state.metadata
     

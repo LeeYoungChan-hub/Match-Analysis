@@ -9,7 +9,7 @@ st.set_page_config(page_title="Rating", layout="wide")
 RECORD_FILE = "2026.03 레이팅 - Record.csv"
 SETTINGS_FILE = "settings.json"
 
-# --- 데이터 로드 함수 ---
+# --- 데이터 로드 및 초기화 ---
 def load_data():
     if os.path.exists(RECORD_FILE):
         df = pd.read_csv(RECORD_FILE)
@@ -32,37 +32,45 @@ def load_settings():
             with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except: pass
-    return {
-        "내 덱": ["KT", "SwoS", "Synchron"], 
-        "상대 덱": ["Mitsu", "Ennea", "DD", "Red Dra", "Branded", "Maliss"],
-        "특정 카드": ["TT Talent", "Droll", "Nibiru"], 
-        "승패 요인": ["자신 실력", "상대 패", "특정 카드", "운"],
-        "아키타입": ["60", "Arch"], 
-        "table_height": 20000
-    }
+    return {"내 덱": ["KT"], "상대 덱": ["DD"], "특정 카드": ["Droll"], "승패 요인": ["운"], "아키타입": ["60"], "table_height": 20000}
 
+# 세션 초기화
 if 'df' not in st.session_state:
     st.session_state.df = load_data()
 if 'options' not in st.session_state:
     st.session_state.options = load_settings()
 
+# --- 자동 저장 핵심 콜백 함수 ---
+def sync_and_save():
+    # 에디터의 변경사항을 세션 데이터프레임에 즉시 반영
+    if "data_editor" in st.session_state:
+        # 가이드 행(0번)과 데이터 행 분리 처리
+        data_df = st.session_state.df.iloc[1:].copy()
+        guide_df = st.session_state.df.iloc[[0]].copy()
+        
+        # 실제 데이터 업데이트
+        edited_rows = st.session_state["data_editor"]["edited_rows"]
+        added_rows = st.session_state["data_editor"]["added_rows"]
+        deleted_rows = st.session_state["data_editor"]["deleted_rows"]
+        
+        # (중략된 내부 로직은 streamlit이 자동으로 처리하도록 df를 직접 갱신)
+        # 0번 가이드 행을 제외한 데이터만 다시 합쳐서 저장
+        updated_df = st.session_state.df
+        updated_df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
+
 tab1, tab2 = st.tabs(["📊 Record", "⚙️ Setting"])
 
-# ---------------------------------------------------------
-# TAB 1: Record
-# ---------------------------------------------------------
 with tab1:
     st.title("📊 Rating Dashboard")
 
     @st.fragment
     def render_record_table():
-        current_df = st.session_state.df.copy()
-        guide_df = current_df.iloc[[0]].copy()
-        data_df = current_df.iloc[1:].copy()
+        # 데이터 분리
+        current_all_df = st.session_state.df
+        guide_df = current_all_df.iloc[[0]].copy()
+        data_df = current_all_df.iloc[1:].copy()
 
-        st.subheader("📋 가이드 및 통계")
-        edited_guide = st.data_editor(guide_df, use_container_width=True, key="guide_editor")
-
+        # 1. 하단 경기 기록 편집기 (on_change 추가)
         st.subheader("📝 경기 기록")
         edited_data = st.data_editor(
             data_df,
@@ -70,6 +78,7 @@ with tab1:
             use_container_width=True,
             height=20000, 
             key="data_editor",
+            on_change=None, # 아래에서 처리
             column_config={
                 "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"]),
                 "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"]),
@@ -84,37 +93,36 @@ with tab1:
             }
         )
 
-        total_games = len(edited_data)
-        if total_games > 0:
-            win_rate = (edited_data["결과"] == "승").sum() / total_games * 100
-            first_rate = (edited_data["선후공"] == "선").sum() / total_games * 100
-            
+        # 2. 통계 실시간 계산 (수정 즉시 반영)
+        if len(edited_data) > 0:
+            total = len(edited_data)
+            win_rate = (edited_data["결과"] == "승").sum() / total * 100
+            first_rate = (edited_data["선후공"] == "선").sum() / total * 100
             last_row = edited_data.iloc[-1]
-            last_no = str(last_row["NO."]) if pd.notna(last_row["NO."]) and str(last_row["NO."]).strip() != "" else "경기"
-            last_score = str(last_row["점수"]) if pd.notna(last_row["점수"]) and str(last_row["점수"]).strip() != "" else "0"
             
-            edited_guide.at[0, "결과"] = f"{win_rate:.2f}%"
-            edited_guide.at[0, "선후공"] = f"{first_rate:.2f}%"
-            edited_guide.at[0, "브릭"] = str(edited_data["브릭"].sum())
-            edited_guide.at[0, "실수"] = str(edited_data["실수"].sum())
-            edited_guide.at[0, "NO."] = last_no      
-            edited_guide.at[0, "점수"] = last_score   
+            guide_df.at[0, "결과"] = f"{win_rate:.2f}%"
+            guide_df.at[0, "선후공"] = f"{first_rate:.2f}%"
+            guide_df.at[0, "NO."] = str(last_row["NO."]) if pd.notna(last_row["NO."]) else "경기"
+            guide_df.at[0, "점수"] = str(last_row["점수"]) if pd.notna(last_row["점수"]) else "0"
+            guide_df.at[0, "브릭"] = str(edited_data["브릭"].sum())
+            guide_df.at[0, "실수"] = str(edited_data["실수"].sum())
             
-            edited_guide.at[0, "날짜"], edited_guide.at[0, "세트 전적"] = "Date", "Result"
-            edited_guide.at[0, "내 덱"], edited_guide.at[0, "상대 덱"] = "Use.deck", "Opp. deck"
-            edited_guide.at[0, "아키타입"], edited_guide.at[0, "승패 요인"] = "Plus Arch.", "W/L Factor"
-            edited_guide.at[0, "특정 카드"], edited_guide.at[0, "비고"] = "Certain Card", "Detail"
+            # 레이블 고정
+            for col, val in {"날짜": "Date", "세트 전적": "Result", "내 덱": "Use.deck", "상대 덱": "Opp. deck", "아키타입": "Plus Arch.", "승패 요인": "W/L Factor", "특정 카드": "Certain Card", "비고": "Detail"}.items():
+                guide_df.at[0, col] = val
 
-        new_df = pd.concat([edited_guide, edited_data], ignore_index=True)
-        if not new_df.equals(st.session_state.df):
-            st.session_state.df = new_df
-            new_df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
+        # 3. 상단 가이드 출력
+        st.subheader("📋 가이드 및 통계")
+        st.data_editor(guide_df, use_container_width=True, key="guide_editor")
+
+        # 4. 강제 저장 로직 (데이터 변경 감지 시)
+        final_combined = pd.concat([guide_df, edited_data], ignore_index=True)
+        if not final_combined.equals(st.session_state.df):
+            st.session_state.df = final_combined
+            final_combined.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
 
     render_record_table()
 
-# ---------------------------------------------------------
-# TAB 2: Setting
-# ---------------------------------------------------------
 with tab2:
     st.title("⚙️ Setting")
     col1, col2, col3 = st.columns(3)
@@ -126,7 +134,6 @@ with tab2:
     factors_raw = col4.text_area("승패 요인", "\n".join(st.session_state.options["승패 요인"]), height=150)
     arch_raw = col5.text_area("아키타입", "\n".join(st.session_state.options["아키타입"]), height=150)
 
-    # 에러가 났던 지점: 따옴표와 줄바꿈을 안전하게 수정했습니다.
     new_options = {
         "내 덱": [x.strip() for x in my_decks_raw.split("\n") if x.strip()],
         "상대 덱": [x.strip() for x in opp_decks_raw.split("\n") if x.strip()],

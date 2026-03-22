@@ -159,8 +159,30 @@ def create_4_row_table(target_df):
     ]
     return pd.DataFrame(data)
 # ---------------------------------------------------------
-# [페이지 3] Rating (설정) - 기존과 동일
+# [페이지 3] Rating (설정) - 신규 추가
 # ---------------------------------------------------------
-else:
+else:  # ⚙️ Rating (설정)
     st.title("⚙️ Rating 설정")
-    # (설정 코드 부분은 생략 - 이전 버전과 동일하게 유지)
+    meta = st.session_state.metadata
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        new_my = st.text_area("내 덱 (쉼표 구분)", ", ".join(meta["my_decks"]))
+        new_opp = st.text_area("상대 덱 (쉼표 구분)", ", ".join(meta["opp_decks"]))
+    with col2:
+        new_arche = st.text_area("아키타입", ", ".join(meta["archetypes"]))
+        new_reasons = st.text_area("승패 요인", ", ".join(meta["win_loss_reasons"]))
+        new_cards = st.text_area("특정 카드", ", ".join(meta["target_cards"]))
+        
+    if st.button("✅ 설정 저장", type="primary"):
+        st.session_state.metadata = {
+            "my_decks": [x.strip() for x in new_my.split(",") if x.strip()],
+            "opp_decks": [x.strip() for x in new_opp.split(",") if x.strip()],
+            "archetypes": [x.strip() for x in new_arche.split(",") if x.strip()],
+            "win_loss_reasons": [x.strip() for x in new_reasons.split(",") if x.strip()],
+            "target_cards": [x.strip() for x in new_cards.split(",") if x.strip()]
+        }
+        with open(META_FILE, 'w', encoding='utf-8') as f:
+            json.dump(st.session_state.metadata, f, ensure_ascii=False, indent=4)
+        st.success("설정이 저장되었습니다!")
+        st.rerun()

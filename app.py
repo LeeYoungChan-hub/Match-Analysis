@@ -100,69 +100,52 @@ if page == "📊 Record":
     
     # [설정] 표 높이 조절
     TABLE_HEIGHT = 1000 
-    
-    # 1. 실시간 요약 통계 계산 (실제 데이터 기반)
-    real_df = st.session_state.df.copy()
-    total_games = len(real_df[real_df['결과'].isin(['승', '패'])])
-    
-    first_rate = f"{(len(real_df[real_df['선후공'] == '선']) / total_games * 100):.1f}%" if total_games > 0 else "0.0%"
-    win_rate = f"{(len(real_df[real_df['결과'] == '승']) / total_games * 100):.1f}%" if total_games > 0 else "0.0%"
-    
-    # 브릭/실수 합계 계산 (불리언 체크 개수)
-    total_bricks = real_df['브릭'].sum() if '브릭' in real_df.columns else 0
-    total_mistakes = real_df['실수'].sum() if '실수' in real_df.columns else 0
 
-    # 2. 요청하신 [경기/Date/계산값...] 상단 고정 헤더 (CSS/HTML)
-    # 표의 컬럼 너비와 최대한 맞추어 디자인되었습니다.
-    st.markdown(f"""
-    <style>
-        .custom-header {{ width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: -1px; }}
-        .custom-header th {{ 
-            background-color: #f1f3f6; color: #31333F; font-size: 11px; padding: 8px 2px;
-            border: 1px solid #dcdfe3; text-align: center; font-weight: bold;
-        }}
-        .calc-val {{ color: #ff4b4b; font-size: 12px; }} /* 계산값 강조색 */
-    </style>
-    <table class="custom-header">
-        <tr>
-            <th style="width: 50px;">경기</th>
-            <th style="width: 70px;">Date</th>
-            <th style="width: 70px;">선공률<br><span class="calc-val">{first_rate}</span></th>
-            <th style="width: 60px;">승률<br><span class="calc-val">{win_rate}</span></th>
-            <th style="width: 70px;">Result</th>
-            <th style="width: 50px;">Score</th>
-            <th style="width: 110px;">Use.deck</th>
-            <th style="width: 130px;">Opp. deck</th>
-            <th style="width: 100px;">Plus Arch.</th>
-            <th style="width: 100px;">W/L Factor</th>
-            <th style="width: 100px;">Certain Card</th>
-            <th style="width: 60px;">Brick<br><span class="calc-val">{total_bricks}</span></th>
-            <th style="width: 60px;">Mistake<br><span class="calc-val">{total_mistakes}</span></th>
-            <th style="width: 450px;">Detailed</th>
-        </tr>
-    </table>
-    """, unsafe_allow_html=True)
+    # 1. 실제 데이터와 통계 계산
+    # 세션의 df에서 요약행(경기/Date 등)이 있으면 제외하고 계산
+    raw_df = st.session_state.df.copy()
+    real_df = raw_df[~raw_df['NO.'].isin(['경기', 'Date'])].copy()
+    
+    total_games = len(real_df[real_df['결과'].isin(['승', '패'])])
+    f_rate = f"{(len(real_df[real_df['선후공'] == '선']) / total_games * 100):.1f}%" if total_games > 0 else "0.0%"
+    w_rate = f"{(len(real_df[real_df['결과'] == '승']) / total_games * 100):.1f}%" if total_games > 0 else "0.0%"
+    
+    # 브릭/실수 합계 (문자열로 변환하여 준비)
+    b_sum = str(real_df['브릭'].apply(lambda x: 1 if str(x).lower() in ['true', '1'] else 0).sum())
+    m_sum = str(real_df['실수'].apply(lambda x: 1 if str(x).lower() in ['true', '1'] else 0).sum())
+
+    # 2. 표의 맨 윗줄(요약행) 생성
+    # 데이터 타입을 맞추기 위해 모든 값을 문자열로 생성합니다.
+    summary_row = {
+        "NO.": "경기", "날짜": "Date", "선후공": f_rate, "결과": w_rate, 
+        "세트": "Result", "점수": "Score", "내 덱": "Use.deck", "상대 덱": "Opp. deck", 
+        "아키타입": "Plus Arch.", "승패 요인": "W/L Factor", "특정 카드": "Certain Card", 
+        "브릭": b_sum, "실수": m_sum, "비고": "Detailed"
+    }
+    
+    # 요약행 + 실제 데이터 합치기
+    # 주의: 이 과정에서 브릭/실수 컬럼이 체크박스가 아닌 '텍스트'로 보일 수 있습니다.
+    display_df = pd.concat([pd.DataFrame([summary_row]), real_df], ignore_index=True)
 
     # 3. 새로운 경기 추가 버튼
     if st.button("➕ 새로운 경기 추가"):
-        new_no = str(len(st.session_state.df) + 1)
+        new_no = str(len(real_df) + 1)
         new_row = pd.DataFrame([{
-            "NO.": new_no, "날짜": "", "선후공": "", "결과": "", 
-            "세트": "", "점수": "", "내 덱": "", "상대 덱": "", 
-            "아키타입": "", "승패 요인": "", "특정 카드": "", 
-            "브릭": False, "실수": False, "비고": ""
+            "NO.": new_no, "날짜": "", "선후공": "", "결과": "", "세트": "", "점수": "", 
+            "내 덱": "", "상대 덱": "", "아키타입": "", "승패 요인": "", "특정 카드": "", 
+            "브릭": "False", "실수": "False", "비고": ""
         }])
-        st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
+        st.session_state.df = pd.concat([real_df, new_row], ignore_index=True)
         save_records(st.session_state.df)
         st.rerun()
 
-    # 4. 메인 데이터 에디터 (여기서 실제 입력을 진행합니다)
+    # 4. 메인 데이터 에디터
     edited = st.data_editor(
-        st.session_state.df, 
+        display_df, 
         use_container_width=True, 
         num_rows="dynamic", 
         hide_index=True, 
-        key="editor_final_v4",
+        key="editor_top_summary_v5",
         height=TABLE_HEIGHT,
         column_config={
             "NO.": st.column_config.TextColumn("NO.", width=50),
@@ -176,15 +159,23 @@ if page == "📊 Record":
             "아키타입": st.column_config.SelectboxColumn("아키타입", options=[""] + st.session_state.metadata["archetypes"], width=100),
             "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=[""] + st.session_state.metadata["win_loss_reasons"], width=100),
             "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=[""] + st.session_state.metadata["target_cards"], width=100),
-            "브릭": st.column_config.CheckboxColumn("브릭", width=60),
-            "실수": st.column_config.CheckboxColumn("실수", width=60),
+            # 요약행의 숫자를 보여주기 위해 체크박스 대신 텍스트 컬럼 사용
+            "브릭": st.column_config.TextColumn("브릭", width=60),
+            "실수": st.column_config.TextColumn("실수", width=60),
             "비고": st.column_config.TextColumn("비고", width=450)
         }
     )
 
-    # 5. 변경 사항 저장
-    if not edited.equals(st.session_state.df):
-        save_records(edited)
+    # 5. 저장 로직 (맨 윗줄 요약행 제외)
+    if not edited.equals(display_df):
+        # 첫 번째 줄(Summary)을 제외하고 저장
+        final_save_df = edited.iloc[1:].reset_index(drop=True)
+        
+        # 브릭/실수 값을 다시 불리언으로 변환하여 저장
+        for col in ["브릭", "실수"]:
+            final_save_df[col] = final_save_df[col].apply(lambda x: str(x).lower() in ['true', '1', 'checked'])
+            
+        save_records(final_save_df)
         st.rerun()
         
 # --- PAGE: Analysis ---

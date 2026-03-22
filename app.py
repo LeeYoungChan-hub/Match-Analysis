@@ -56,7 +56,6 @@ th.col_heading.level0.index_name {display:none;}
 
 # ---------------- 데이터 로드 ----------------
 
-
 def load_metadata():
 
     default = {
@@ -116,9 +115,7 @@ def save_data(df):
     df.to_csv(RECORD_FILE,index=False,encoding="utf-8-sig")
     st.session_state.df=df.reset_index(drop=True)
 
-
 # ---------------- 분석 테이블 ----------------
-
 
 def render_styled_table(title,df):
 
@@ -182,14 +179,11 @@ def render_styled_table(title,df):
 </table>
 """
 
-
 # ---------------- Matchup Table ----------------
-
 
 def create_matchup_table(df):
 
     df=df[df["결과"].isin(["승","패"])]
-
     total_games=len(df)
 
     rows=[]
@@ -199,7 +193,6 @@ def create_matchup_table(df):
         sub=df[df["상대 덱"]==opp]
 
         total=len(sub)
-
         w=len(sub[sub["결과"]=="승"])
         l=len(sub[sub["결과"]=="패"])
 
@@ -236,7 +229,6 @@ def create_matchup_table(df):
         df_out=df_out.sort_values("W%",ascending=False)
 
     return df_out
-
 
 # ---------------- 세션 초기화 ----------------
 
@@ -365,4 +357,3 @@ else:
 
         st.success("저장 완료")
         st.rerun()
-```

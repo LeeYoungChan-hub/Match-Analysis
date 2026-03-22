@@ -7,7 +7,7 @@ import json
 RECORD_FILE = 'yugioh_records.csv'
 META_FILE = 'metadata_config.json'
 
-st.set_page_config(page_title="Rating Analysis", layout="wide")
+st.set_page_config(page_title="YGO Rating Analysis", layout="wide")
 
 # --- 2. [디자인] 시스템 요소 숨기기 및 분석 레이아웃 CSS ---
 st.markdown("""
@@ -118,8 +118,8 @@ if 'df' not in st.session_state:
 
 page = st.sidebar.radio("메뉴", ["📊 Record", "📈 Analysis", "⚙️ Setting"])
 
-if page == "📊 기록":
-    st.title("📊 전적 기록")
+if page == "📊 Record":
+    st.title("📊 Record")
     if st.button("➕ 새로운 경기 추가"):
         meta = st.session_state.metadata
         new_row = pd.DataFrame([{
@@ -155,7 +155,7 @@ if page == "📊 기록":
         save_data(edited_df)
         st.rerun()
 
-elif page == "📈 분석":
+elif page == "📈 Analysis":
     st.title("📈 Rating Analysis")
     df_ana = load_records()
     if not df_ana.empty:
@@ -174,7 +174,7 @@ elif page == "📈 분석":
         st.markdown('</div>', unsafe_allow_html=True)
 
 else:
-    st.title("⚙️ Rating 설정")
+    st.title("⚙️ Setting")
     meta = st.session_state.metadata
     c1, c2 = st.columns(2)
     with c1: new_my = st.text_area("내 덱 (쉼표 구분)", ", ".join(meta.get("my_decks", [])))

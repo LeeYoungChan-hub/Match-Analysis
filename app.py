@@ -9,20 +9,31 @@ META_FILE = 'metadata_config.json'
 
 st.set_page_config(page_title="YGO Rating Analysis", layout="wide")
 
-# --- 2. [디자인] 시스템 인덱스 숨기기 및 레이아웃 ---
+# --- 2. [디자인] 인덱스 열(0,1,2...) 절대 박멸 CSS ---
 st.markdown("""
     <style>
-    /* 시스템 인덱스 열(0,1,2...) 절대 표시 안함 */
-    [data-testid="stTableIdxColumn"] { display: none !important; }
+    /* 1. 데이터 에디터의 인덱스 열 강제 숨김 */
+    [data-testid="stTableIdxColumn"] {
+        display: none !important;
+        width: 0px !important;
+    }
+    /* 2. 테이블 헤더의 인덱스 부분 숨김 */
+    th.col_heading.level0.index_name {
+        display: none !important;
+    }
+    /* 3. 에디터 셀 내부 인덱스 넘버링 숨김 */
+    .row-widget.stDataFrame div[role="grid"] div[role="rowgroup"] div[role="row"] div:first-child {
+        border: none !important;
+    }
+    
     .analysis-wrapper { width: 33%; margin-left: 0; }
     .styled-table { width: 100%; font-size: 14px; border-collapse: collapse; margin-bottom: 30px; table-layout: fixed; }
     .styled-table td { text-align: center !important; border: 1px solid #dee2e6 !important; padding: 10px !important; }
     .styled-table tr:nth-child(odd) { background-color: #f0f2f6 !important; font-weight: bold; color: #31333F; }
-    div[data-testid="stSelectbox"] { width: 100% !important; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. 데이터 로직 (KeyError 및 누락 방지) ---
+# --- 3. 데이터 로직 ---
 def load_metadata():
     default_meta = {
         "my_decks": ["KT", "Ennea", "Maliss", "Tenpai"],
@@ -50,32 +61,15 @@ def load_records():
                 if col not in df.columns: df[col] = ""
             for col in ["브릭", "실수"]:
                 df[col] = df[col].apply(lambda x: True if str(x).lower() in ['true', '1'] else False)
-            return df[cols]
+            # 인덱스를 초기화해서 0,1,2...가 데이터프레임 자체에 남지 않게 함
+            return df[cols].reset_index(drop=True)
         except: pass
     return pd.DataFrame(columns=cols)
 
 def save_data(df):
+    # 인덱스 없이 저장
     df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
-    st.session_state.df = df
-
-def render_analysis_table(target_df):
-    calc_df = target_df[target_df['결과'].isin(['승', '패'])]
-    total = len(calc_df)
-    if total == 0: return "<p style='color:gray;'>데이터가 없습니다.</p>"
-    wins = len(calc_df[calc_df['결과'] == '승'])
-    losses = len(calc_df[calc_df['결과'] == '패'])
-    win_rate = (wins / total * 100)
-    f_df, s_df = calc_df[calc_df['선후공'] == '선'], calc_df[calc_df['선후공'] == '후']
-    f_win = len(f_df[f_df['결과'] == '승'])
-    s_win = len(s_df[s_df['결과'] == '승'])
-    return f"""
-        <table class="styled-table">
-            <tr><td>전체 판수</td><td>전체 승률</td><td>승리</td><td>패배</td></tr>
-            <tr><td>{total}</td><td>{win_rate:.1f}%</td><td>{wins}</td><td>{losses}</td></tr>
-            <tr><td>선공 승률</td><td>후공 승률</td><td>선공 수</td><td>후공 수</td></tr>
-            <tr><td>{(f_win/len(f_df)*100 if len(f_df)>0 else 0):.1f}%</td><td>{(s_win/len(s_df)*100 if len(s_df)>0 else 0):.1f}%</td><td>{len(f_df)}</td><td>{len(s_df)}</td></tr>
-        </table>
-    """
+    st.session_state.df = df.reset_index(drop=True)
 
 # --- 4. 메인 로직 ---
 if 'metadata' not in st.session_state:
@@ -96,28 +90,34 @@ if page == "📊 기록":
             "아키타입": meta["archetypes"][0], "승패 요인": meta["win_loss_reasons"][0],
             "특정 카드": meta["target_cards"][0], "브릭": False, "실수": False, "비고": ""
         }])
-        st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
+        st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True).reset_index(drop=True)
         save_data(st.session_state.df)
         st.rerun()
 
-    meta = st.session_state.metadata
+    # 에디터 실행
     edited_df = st.data_editor(
-        st.session_state.df, use_container_width=True, num_rows="dynamic", hide_index=True, key="ygo_editor_v6",
+        st.session_state.df,
+        use_container_width=True,
+        num_rows="dynamic",
+        hide_index=True, # 핵심 옵션
+        key="ygo_final_no_index",
         column_config={
-            "NO.": st.column_config.TextColumn("NO."),
-            "날짜": st.column_config.TextColumn("날짜"),
-            "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"]),
-            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"]),
+            "NO.": st.column_config.TextColumn("NO.", width="small"),
+            "날짜": st.column_config.TextColumn("날짜", width="small"),
+            "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], width="small"),
+            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width="small"),
             "세트 전적": st.column_config.SelectboxColumn("세트 전적", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"]),
-            "내 덱": st.column_config.SelectboxColumn("내 덱", options=meta.get("my_decks", [])),
-            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=meta.get("opp_decks", [])),
-            "아키타입": st.column_config.SelectboxColumn("아키타입", options=meta.get("archetypes", [])),
-            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=meta.get("win_loss_reasons", [])),
-            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=meta.get("target_cards", [])),
-            "브릭": st.column_config.CheckboxColumn("브릭"), "실수": st.column_config.CheckboxColumn("실수"),
-            "비고": st.column_config.TextColumn("비고")
+            "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata.get("my_decks", [])),
+            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata.get("opp_decks", [])),
+            "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata.get("archetypes", [])),
+            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.metadata.get("win_loss_reasons", [])),
+            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata.get("target_cards", [])),
+            "브릭": st.column_config.CheckboxColumn("브릭", width="small"),
+            "실수": st.column_config.CheckboxColumn("실수", width="small"),
+            "비고": st.column_config.TextColumn("비고", width="large")
         }
     )
+
     if not edited_df.equals(st.session_state.df):
         save_data(edited_df)
         st.rerun()

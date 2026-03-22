@@ -340,7 +340,6 @@ if page == "📊 Record":
         save_data(edited_df)
         st.rerun()
 
-
 # ---------------- Analysis ----------------
 
 elif page == "📈 Analysis":

@@ -13,53 +13,56 @@ st.set_page_config(page_title="26.03 Rating", layout="wide")
 st.markdown("""
 <style>
 
-[data-testid="stTableIdxColumn"] {display:none;}
-
 .styled-table{
-    width:420px;
-    border-collapse:collapse;
-    font-size:13px;
-    margin-bottom:30px;
+width:420px;
+border-collapse:collapse;
+font-size:13px;
+margin-bottom:35px;
 }
 
 .styled-table th{
-    background:#e9c35b;
-    padding:6px;
-    border:1px solid #bbb;
+background:#e7c56d;
+border:1px solid #bbb;
+padding:6px;
+text-align:center;
 }
 
 .styled-table td{
-    background:#f3f3f3;
-    padding:6px;
-    border:1px solid #ccc;
-    text-align:center;
+background:#f4f4f4;
+border:1px solid #ccc;
+padding:6px;
+text-align:center;
 }
 
 .win-val{
-    color:#0050ff;
-    font-weight:bold;
+color:#0048ff;
+font-weight:bold;
 }
 
 .loss-val{
-    color:#ff0000;
-    font-weight:bold;
+color:#ff0000;
+font-weight:bold;
 }
 
 </style>
-""", unsafe_allow_html=True)
+""",unsafe_allow_html=True)
 
 # ---------------- 데이터 ----------------
 
 def load_records():
 
     cols=[
-        "날짜","선후공","결과",
-        "내 덱","상대 덱"
+        "날짜",
+        "선후공",
+        "결과",
+        "내 덱",
+        "상대 덱",
+        "KT",
+        "Striker"
     ]
 
     if os.path.exists(RECORD_FILE):
-        df=pd.read_csv(RECORD_FILE)
-        return df
+        return pd.read_csv(RECORD_FILE)
 
     return pd.DataFrame(columns=cols)
 
@@ -69,7 +72,26 @@ def save_records(df):
     df.to_csv(RECORD_FILE,index=False)
 
 
-# ---------------- 분석 계산 ----------------
+def load_meta():
+
+    if os.path.exists(META_FILE):
+
+        with open(META_FILE,"r") as f:
+            return json.load(f)
+
+    return {
+        "my_decks":[],
+        "opp_decks":[]
+    }
+
+
+def save_meta(data):
+
+    with open(META_FILE,"w") as f:
+        json.dump(data,f)
+
+
+# ---------------- 통계 계산 ----------------
 
 def calc_stats(df):
 
@@ -194,36 +216,37 @@ def render_table(title,stats):
 """
 
 
-# ---------------- 페이지 ----------------
+# ---------------- 메뉴 ----------------
 
-page=st.sidebar.radio("Menu",["Record","Analysis"])
+page=st.sidebar.radio("Menu",["Record","Analysis","Setting"])
 
 df=load_records()
+meta=load_meta()
 
 # ---------------- Record ----------------
 
 if page=="Record":
 
-    st.title("Record")
+    st.title("Match Record")
 
-    new=st.data_editor(df,num_rows="dynamic")
+    edited=st.data_editor(df,num_rows="dynamic")
 
     if st.button("Save"):
-        save_records(new)
+
+        save_records(edited)
         st.success("Saved")
 
 
 # ---------------- Analysis ----------------
 
-else:
+elif page=="Analysis":
 
-    st.title("Analysis")
+    st.title("Overall Data")
 
     if df.empty:
+
         st.write("No Data")
         st.stop()
-
-    # Overall
 
     st.markdown(
         render_table(
@@ -233,35 +256,63 @@ else:
         unsafe_allow_html=True
     )
 
-    # 덱 선택
+    st.subheader("덱별 승률")
 
     my_deck=st.selectbox(
-        "내 덱 선택",
-        sorted(df["내 덱"].unique())
+        "내 덱",
+        sorted(df["내 덱"].dropna().unique())
     )
 
     deck_df=df[df["내 덱"]==my_deck]
 
     st.markdown(
         render_table(
-            f"{my_deck} 덱별 승률",
+            my_deck,
             calc_stats(deck_df)
         ),
         unsafe_allow_html=True
     )
 
-    # 상대 덱별
-
     st.subheader("상대 덱별 승률")
 
-    for opp in sorted(deck_df["상대 덱"].unique()):
+    for opp in sorted(deck_df["상대 덱"].dropna().unique()):
 
         sub=deck_df[deck_df["상대 덱"]==opp]
 
         st.markdown(
             render_table(
-                f"{opp}",
+                opp,
                 calc_stats(sub)
             ),
             unsafe_allow_html=True
         )
+
+
+# ---------------- Setting ----------------
+
+else:
+
+    st.title("Setting")
+
+    st.subheader("내 덱 목록")
+
+    my=st.text_area(
+        "줄바꿈으로 입력",
+        "\n".join(meta["my_decks"])
+    )
+
+    st.subheader("상대 덱 목록")
+
+    opp=st.text_area(
+        "줄바꿈으로 입력",
+        "\n".join(meta["opp_decks"])
+    )
+
+    if st.button("Save Setting"):
+
+        meta["my_decks"]=my.split("\n")
+        meta["opp_decks"]=opp.split("\n")
+
+        save_meta(meta)
+
+        st.success("Saved")

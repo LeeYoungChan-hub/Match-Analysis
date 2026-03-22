@@ -246,7 +246,7 @@ with tab_record:
         st.session_state.df = st.session_state.df.rename(columns={"세트 전적": "세트"})
 
     st.title("📊 Rating Dashboard")
-    st.caption("가이드·경기 기록을 바꾸면 자동으로 CSV에 저장됩니다.")
+    st.caption("편집 후 💾 저장을 눌러야 CSV에 반영됩니다. (자동 저장 끔 — 렉 감소)")
 
     # 1행(가이드)과 나머지(데이터) 분리 — 가이드는 항상 1행만
     guide_df = _single_guide_row(st.session_state.df.iloc[[0]].copy())
@@ -331,11 +331,17 @@ with tab_record:
     )
     st.session_state.last_edited_record_data = edited_data.copy()
 
-    guide_to_save = _apply_guide_stats_from_records(_single_guide_row(edited_guide), edited_data)
-    _persist_record_csv(guide_to_save, edited_data)
-
-    csv = st.session_state.df.to_csv(index=False).encode('utf-8-sig')
-    st.download_button("📥 CSV 다운로드", data=csv, file_name=FILENAME, mime='text/csv')
+    save_col, dl_col = st.columns([1, 1])
+    with save_col:
+        if st.button("💾 저장", type="primary", use_container_width=True):
+            guide_to_save = _apply_guide_stats_from_records(_single_guide_row(edited_guide), edited_data)
+            _persist_record_csv(guide_to_save, edited_data)
+            st.success("저장했습니다.")
+    _g_dl = _apply_guide_stats_from_records(_single_guide_row(edited_guide), edited_data)
+    _merged_dl = pd.concat([_g_dl, edited_data], ignore_index=True)
+    csv = _merged_dl.to_csv(index=False).encode("utf-8-sig")
+    with dl_col:
+        st.download_button("📥 CSV 다운로드", data=csv, file_name=FILENAME, mime="text/csv", use_container_width=True)
 
 # ---------------------------------------------------------
 # Setting

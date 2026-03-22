@@ -114,7 +114,7 @@ if page == "📊 Rating (전적 기록/분석)":
             "NO.": st.column_config.NumberColumn("No.", disabled=True, width="small"),
             "선후공": st.column_config.SelectboxColumn("선/후", options=["선", "후"], width="small"),
             "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width="small"),
-            "매치 상세": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width="small"),
+            "매치 상세": st.column_config.SelectboxColumn("세트전적", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width="small"),
             "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata["my_decks"]),
             "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata["opp_decks"]),
             "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata["archetypes"]),

@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 # 1. 페이지 설정
-st.set_page_config(page_title="Rating Dashboard", layout="wide")
+st.set_page_config(page_title="Rating Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
 # 세로·좁은 화면에서 한 화면에 가깝게 보이도록 여백·타이포 축소
 def _compact_layout_css() -> None:
@@ -17,31 +17,40 @@ def _compact_layout_css() -> None:
             max-width: 100% !important;
         }
         section[data-testid="stMain"] > div { padding-top: 0.3rem !important; padding-bottom: 0.2rem !important; }
-        h1 { font-size: clamp(1rem, 4vw, 1.4rem) !important; line-height: 1.15 !important; margin: 0 0 0.2rem 0 !important; padding: 0 !important; }
-        h2, h3 { font-size: clamp(0.82rem, 3.4vw, 1.05rem) !important; line-height: 1.15 !important; margin: 0.28rem 0 0.12rem 0 !important; padding: 0 !important; }
-        [data-testid="stCaption"] { margin-bottom: 0.22rem !important; font-size: 0.72rem !important; line-height: 1.2 !important; }
+        /* Rating Dashboard 본문: 스프레드시트 느낌 10px */
+        section[data-testid="stMain"] h1 { font-size: 10px !important; line-height: 1.2 !important; margin: 0 0 0.2rem 0 !important; padding: 0 !important; }
+        section[data-testid="stMain"] h2, section[data-testid="stMain"] h3 { font-size: 10px !important; line-height: 1.2 !important; margin: 0.28rem 0 0.12rem 0 !important; padding: 0 !important; }
+        section[data-testid="stMain"] [data-testid="stCaption"] { margin-bottom: 0.22rem !important; font-size: 10px !important; line-height: 1.2 !important; }
+        div[data-testid="stRadio"] label, div[data-testid="stRadio"] p { font-size: 10px !important; }
         .stTabs [data-baseweb="tab-list"] { min-height: 1.85rem !important; gap: 0.2rem !important; margin-bottom: 0 !important; }
         .stTabs [data-baseweb="tab"] { padding: 0.28rem 0.5rem !important; font-size: 0.82rem !important; }
         .stTabs [data-baseweb="tab-panel"] { padding-top: 0.28rem !important; }
         div[data-testid="stVerticalBlock"] > div { gap: 0.28rem !important; }
         div[data-testid="stElementContainer"] { margin-bottom: 0.25rem !important; }
-        [data-testid="stDataFrame"] { margin-bottom: 0.15rem !important; font-size: 9px !important; }
-        [data-testid="stDataFrame"] * { line-height: 1.1 !important; font-size: 9px !important; }
-        /* 열 헤더가 좁은 칸에서 두 줄로 내려가 보이는 현상 완화 */
+        /* 스프레드시트: 본문 10px, 셀 가운데 맞춤 */
+        [data-testid="stDataFrame"] { margin-bottom: 0.15rem !important; font-size: 10px !important; }
+        [data-testid="stDataFrame"] * { line-height: 1.2 !important; font-size: 10px !important; }
+        [data-testid="stDataFrame"] [role="gridcell"],
+        [data-testid="stDataFrame"] [role="columnheader"],
+        [data-testid="stDataFrame"] [role="gridcell"] *,
+        [data-testid="stDataFrame"] [role="columnheader"] * {
+            text-align: center !important;
+            vertical-align: middle !important;
+            justify-content: center !important;
+        }
+        [data-testid="stDataFrame"] [role="gridcell"] label { justify-content: center !important; width: 100% !important; }
         [data-testid="stDataFrame"] [role="columnheader"],
         [data-testid="stDataFrame"] [role="columnheader"] * {
             white-space: nowrap !important;
             overflow: hidden !important;
             text-overflow: ellipsis !important;
         }
+        /* 탭이 좁은 화면에서 잘리지 않도록 */
+        .stTabs [data-baseweb="tab-list"] { flex-wrap: nowrap !important; overflow-x: auto !important; width: 100% !important; }
         .stDownloadButton { margin-top: 0.1rem !important; }
         .stDownloadButton button { padding: 0.3rem 0.65rem !important; font-size: 0.8rem !important; min-height: 2rem !important; }
         @media screen and (max-aspect-ratio: 1/1) {
             .block-container { padding-top: 0.3rem !important; padding-bottom: 0.2rem !important; }
-            h1 { font-size: 1.08rem !important; }
-            h2, h3 { font-size: 0.82rem !important; margin: 0.2rem 0 0.08rem 0 !important; }
-            [data-testid="stCaption"] { font-size: 0.68rem !important; }
-            .stTabs [data-baseweb="tab"] { font-size: 0.78rem !important; padding: 0.22rem 0.42rem !important; }
         }
         </style>
         """,
@@ -55,6 +64,7 @@ _compact_layout_css()
 FILENAME = "2026.03 레이팅 - Record.csv"
 # NO. ~ 점수 열 공통 너비 (픽셀)
 COL_W_NO_TO_SCORE = "70px"
+CELL_ALIGN = "center"
 
 if 'df' not in st.session_state:
     try:
@@ -199,13 +209,19 @@ def _persist_record_csv(guide: pd.DataFrame, records: pd.DataFrame) -> None:
         st.error(f"CSV 저장 실패: {e}")
 
 
-# 3. 상단 탭 구성
-tab1, tab2 = st.tabs(["📊 Record", "⚙️ Setting"])
+# 3. 페이지 전환 (상단 고정 — Setting이 숨지 않도록 탭 대신 라디오 사용)
+page = st.radio(
+    "페이지",
+    ["📊 Record", "⚙️ Setting"],
+    horizontal=True,
+    label_visibility="collapsed",
+    key="main_nav",
+)
 
 # ---------------------------------------------------------
-# TAB 1: Record 페이지
+# Record (Rating Dashboard)
 # ---------------------------------------------------------
-with tab1:
+if page == "📊 Record":
     if "세트 전적" in st.session_state.df.columns:
         st.session_state.df = st.session_state.df.rename(columns={"세트 전적": "세트"})
 
@@ -245,14 +261,20 @@ with tab1:
         hide_index=True,
         key="guide_editor",
         column_config={
-            "NO.": st.column_config.TextColumn("NO.", disabled=True, width=COL_W_NO_TO_SCORE),
-            "날짜": st.column_config.TextColumn("날짜", width=COL_W_NO_TO_SCORE),
-            "선후공": st.column_config.TextColumn("선후공", width=COL_W_NO_TO_SCORE),
-            "결과": st.column_config.TextColumn("결과", width=COL_W_NO_TO_SCORE),
-            "세트": st.column_config.TextColumn("세트", width=COL_W_NO_TO_SCORE),
-            "점수": st.column_config.TextColumn("점수", disabled=True, width=COL_W_NO_TO_SCORE),
-            "브릭": st.column_config.NumberColumn("브릭", format="%d", disabled=True),
-            "실수": st.column_config.NumberColumn("실수", format="%d", disabled=True),
+            "NO.": st.column_config.TextColumn("NO.", disabled=True, width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
+            "날짜": st.column_config.TextColumn("날짜", width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
+            "선후공": st.column_config.TextColumn("선후공", width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
+            "결과": st.column_config.TextColumn("결과", width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
+            "세트": st.column_config.TextColumn("세트", width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
+            "점수": st.column_config.TextColumn("점수", disabled=True, width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
+            "브릭": st.column_config.NumberColumn("브릭", format="%d", disabled=True, align=CELL_ALIGN),
+            "실수": st.column_config.NumberColumn("실수", format="%d", disabled=True, align=CELL_ALIGN),
+            "내 덱": st.column_config.TextColumn("내 덱", align=CELL_ALIGN),
+            "상대 덱": st.column_config.TextColumn("상대 덱", align=CELL_ALIGN),
+            "아키타입": st.column_config.TextColumn("아키타입", align=CELL_ALIGN),
+            "승패 요인": st.column_config.TextColumn("승패 요인", align=CELL_ALIGN),
+            "특정 카드": st.column_config.TextColumn("특정 카드", align=CELL_ALIGN),
+            "비고": st.column_config.TextColumn("비고", align=CELL_ALIGN),
         },
     )
 
@@ -264,19 +286,20 @@ with tab1:
         height=320,
         key="data_editor",
         column_config={
-            "NO.": st.column_config.TextColumn("NO.", width=COL_W_NO_TO_SCORE),
-            "날짜": st.column_config.TextColumn("날짜", width=COL_W_NO_TO_SCORE),
-            "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], width=COL_W_NO_TO_SCORE),
-            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width=COL_W_NO_TO_SCORE),
-            "세트": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=COL_W_NO_TO_SCORE),
-            "점수": st.column_config.TextColumn("점수", width=COL_W_NO_TO_SCORE),
-            "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.options["내 덱"]),
-            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.options["상대 덱"]),
-            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.options["특정 카드"]),
-            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.options["승패 요인"]),
-            "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.options["아키타입"]),
+            "NO.": st.column_config.TextColumn("NO.", width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
+            "날짜": st.column_config.TextColumn("날짜", width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
+            "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
+            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
+            "세트": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
+            "점수": st.column_config.TextColumn("점수", width=COL_W_NO_TO_SCORE, align=CELL_ALIGN),
+            "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.options["내 덱"], align=CELL_ALIGN),
+            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.options["상대 덱"], align=CELL_ALIGN),
+            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.options["특정 카드"], align=CELL_ALIGN),
+            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.options["승패 요인"], align=CELL_ALIGN),
+            "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.options["아키타입"], align=CELL_ALIGN),
             "브릭": st.column_config.CheckboxColumn("브릭", default=False),
             "실수": st.column_config.CheckboxColumn("실수", default=False),
+            "비고": st.column_config.TextColumn("비고", align=CELL_ALIGN),
         }
     )
     st.session_state.last_edited_record_data = edited_data.copy()
@@ -288,9 +311,9 @@ with tab1:
     st.download_button("📥 CSV 다운로드", data=csv, file_name=FILENAME, mime='text/csv')
 
 # ---------------------------------------------------------
-# TAB 2: Setting 페이지 (기존과 동일)
+# Setting
 # ---------------------------------------------------------
-with tab2:
+else:
     st.title("⚙️ Setting")
     col1, col2, col3 = st.columns(3)
     with col1:

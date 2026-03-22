@@ -10,7 +10,7 @@ FILENAME = "2026.03 레이팅 - Record.csv"
 if 'df' not in st.session_state:
     try:
         st.session_state.df = pd.read_csv(FILENAME)
-        # 체크박스 호환을 위한 데이터 변환
+        # 체크박스 호환을 위한 데이터 변환 (문자열로 저장된 경우 대비)
         st.session_state.df['브릭'] = st.session_state.df['브릭'].map({'TRUE': True, 'FALSE': False, True: True, False: False}).fillna(False)
         st.session_state.df['실수'] = st.session_state.df['실수'].map({'TRUE': True, 'FALSE': False, True: True, False: False}).fillna(False)
     except:
@@ -87,29 +87,29 @@ with tab1:
             first_count = len(edited_data[edited_data["선후공"] == "선"])
             first_rate = (first_count / total_games) * 100
             
-            # 2. 브릭/실수 합계 계산
+            # 2. 브릭/실수 합계 계산 (True인 항목의 개수)
             brick_sum = edited_data["브릭"].sum()
             mistake_sum = edited_data["실수"].sum()
 
-            # 3. 마지막 행 데이터 추출 (숫자만 표시)
+            # 3. 마지막 행 데이터 추출
             last_row = edited_data.iloc[-1]
             last_no = last_row["NO."]
             last_score = last_row["점수"]
             
             # 가이드 행 업데이트
-            edited_guide.at[0, "NO."] = str(last_no)       # 경기 번호 숫자만
-            edited_guide.at[0, "점수"] = str(last_score)    # 점수 숫자만
+            edited_guide.at[0, "NO."] = str(last_no)       # 마지막 경기 번호
+            edited_guide.at[0, "점수"] = str(last_score)    # 마지막 점수
             edited_guide.at[0, "결과"] = f"{win_rate:.2f}%"
             edited_guide.at[0, "선후공"] = f"{first_rate:.2f}%"
-            edited_guide.at[0, "브릭"] = str(brick_sum)
-            edited_guide.at[0, "실수"] = str(mistake_sum)
+            edited_guide.at[0, "브릭"] = str(int(brick_sum))   # 브릭 체크박스 합계
+            edited_guide.at[0, "실수"] = str(int(mistake_sum)) # 실수 체크박스 합계
 
         # 데이터 합치기 및 세션 저장
         st.session_state.df = pd.concat([edited_guide, edited_data], ignore_index=True)
         
         # 파일 저장
         st.session_state.df.to_csv(FILENAME, index=False, encoding='utf-8-sig')
-        st.success("통계가 업데이트되었습니다!")
+        st.success("통계가 실시간으로 합산되어 업데이트되었습니다!")
         st.rerun()
 
     csv = st.session_state.df.to_csv(index=False).encode('utf-8-sig')

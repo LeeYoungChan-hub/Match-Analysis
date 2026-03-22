@@ -130,7 +130,34 @@ elif page == "📈 Analysis (분석)":
         )
         opp_stats['승률'] = (opp_stats['승리'] / opp_stats['경기수'] * 100).map('{:.1f}%'.format)
         st.table(opp_stats.sort_values(by='경기수', ascending=False))
+def create_4_row_table(target_df):
+    total = len(target_df)
+    if total == 0: return pd.DataFrame([["데이터 없음"]], columns=["상태"])
 
+    wins = len(target_df[target_df['결과'] == '승'])
+    losses = len(target_df[target_df['결과'] == '패'])
+    win_rate = (wins / total * 100)
+
+    f_df = target_df[target_df['선후공'] == '선']
+    s_df = target_df[target_df['선후공'] == '후']
+    f_count, s_count = len(f_df), len(s_df)
+    
+    f_wins = len(f_df[f_df['결과'] == '승'])
+    f_losses = len(f_df[f_df['결과'] == '패'])
+    f_win_rate = (f_wins / f_count * 100) if f_count > 0 else 0
+
+    s_wins = len(s_df[s_df['결과'] == '승'])
+    s_losses = len(s_df[s_df['결과'] == '패'])
+    s_win_rate = (s_wins / s_count * 100) if s_count > 0 else 0
+
+    # 요청하신 4줄 레이아웃 데이터
+    data = [
+        ["게임 수", f"{total}회", "전체 승률", f"{win_rate:.2f}%", "전체 승리수", f"{wins}승", "전체 패배수", f"{losses}패"],
+        ["선공 수", f"{f_count}회", "후공 수", f"{s_count}회", "선공 확률", f"{(f_count/total*100):.1f}%", "후공 확률", f"{(s_count/total*100):.1f}%"],
+        ["선공 승리 수", f"{f_wins}회", "선공 패배 수", f"{f_losses}회", "선공 승률", f"{f_win_rate:.1f}%", "선공 패배율", f"{(100-f_win_rate):.1f}%"],
+        ["후공 승리 수", f"{s_wins}회", "후공 패배 수", f"{s_losses}회", "후공 승률", f"{s_win_rate:.1f}%", "후공 패배율", f"{(100-s_win_rate):.1f}%"]
+    ]
+    return pd.DataFrame(data)
 # ---------------------------------------------------------
 # [페이지 3] Rating (설정) - 기존과 동일
 # ---------------------------------------------------------

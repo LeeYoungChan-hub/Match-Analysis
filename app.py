@@ -98,61 +98,54 @@ page = st.sidebar.radio("메뉴", ["📊 Record", "📈 Analysis", "🖼️ Grap
 if page == "📊 Record":
     st.title("📊 Match Record")
     
-    # 1. 실제 데이터 통계 계산
+    # 1. 데이터 로드 및 통계 계산
+    # 기존 df에서 요약행('경기')이 있다면 제외하고 순수 데이터만 추출
     raw_df = st.session_state.df.copy()
-    # 첫 행이 '경기'인 행을 제외하고 계산
     real_data = raw_df[~raw_df['NO.'].isin(['경기'])].copy()
     
+    # 통계 계산 (실제 데이터 기준)
     total_games = len(real_data[real_data['결과'].isin(['승', '패'])])
     f_rate = f"{(len(real_data[real_data['선후공'] == '선']) / total_games * 100):.2f}%" if total_games > 0 else "0.00%"
     w_rate = f"{(len(real_data[real_data['결과'] == '승']) / total_games * 100):.2f}%" if total_games > 0 else "0.00%"
     
-    # 브릭/실수 합계 계산
+    # 브릭/실수 합계 (True/False 개수 세기)
     b_sum = str(real_data['브릭'].apply(lambda x: 1 if str(x).lower() in ['true', '1'] else 0).sum())
     m_sum = str(real_data['실수'].apply(lambda x: 1 if str(x).lower() in ['true', '1'] else 0).sum())
 
-    # 2. 이미지의 1행(초록/노란색 줄) 데이터 생성
-    # 요청하신: 경기/Date/선공률/승률/Result/Use.deck/Opp. deck/Plus Arch./W/L Factor/Certain Card/브릭합/실수합/Detailed
+    # 2. 이미지와 똑같은 1행(요약행) 데이터 생성
+    # 모든 값을 '문자열'로 생성하여 데이터 타입 충돌 방지
     summary_row = {
-        "NO.": "경기", 
-        "날짜": "Date", 
-        "선후공": f_rate, 
-        "결과": w_rate, 
-        "세트": "Result", 
-        "점수": "Score", # 기존 코드의 '점수' 컬럼을 전적/Score로 활용
-        "내 덱": "Use.deck", 
-        "상대 덱": "Opp. deck", 
-        "아키타입": "Plus Arch.", 
-        "승패 요인": "W/L Factor", 
-        "특정 카드": "Certain Card", 
-        "브릭": b_sum, 
-        "실수": m_sum, 
-        "비고": "Detailed"
+        "NO.": "경기", "날짜": "Date", "선후공": f_rate, "결과": w_rate, 
+        "세트": "Result", "점수": "Score", "내 덱": "Use.deck", "상대 덱": "Opp. deck", 
+        "아키타입": "Plus Arch.", "승패 요인": "W/L Factor", "특정 카드": "Certain Card", 
+        "브릭": b_sum, "실수": m_sum, "비고": "Detailed"
     }
     
-    # 요약행을 가장 위에 붙여서 표시용 DF 생성
+    # 요약행 + 실제 데이터 합치기
+    # 중요: 브릭/실수 열을 '문자열' 타입으로 유지해야 표가 안 깨짐
     display_df = pd.concat([pd.DataFrame([summary_row]), real_data], ignore_index=True)
+    for col in ["브릭", "실수"]:
+        display_df[col] = display_df[col].astype(str)
 
-    # 3. 새로운 경기 추가 버튼
+    # 3. 신규 경기 추가 버튼
     if st.button("➕ 새로운 경기 추가"):
         new_no = str(len(real_data) + 1)
         new_row = pd.DataFrame([{
             "NO.": new_no, "날짜": "", "선후공": "", "결과": "", "세트": "", "점수": "", 
             "내 덱": "", "상대 덱": "", "아키타입": "", "승패 요인": "", "특정 카드": "", 
-            "브릭": False, "실수": False, "비고": ""
+            "브릭": "False", "실수": "False", "비고": ""
         }])
         st.session_state.df = pd.concat([real_data, new_row], ignore_index=True)
         save_records(st.session_state.df)
         st.rerun()
 
-    # 4. 데이터 에디터 (UI 구성)
-    # 이미지처럼 브릭/실수 칸에 숫자를 보여주기 위해 일시적으로 TextColumn으로 설정합니다.
+    # 4. 데이터 에디터
     edited = st.data_editor(
         display_df, 
         use_container_width=True, 
         num_rows="dynamic", 
         hide_index=True, 
-        key="editor_img_style_v1",
+        key="editor_fix_v6",
         height=800,
         column_config={
             "NO.": st.column_config.TextColumn("NO.", width=50),
@@ -165,21 +158,7 @@ if page == "📊 Record":
             "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=[""] + st.session_state.metadata["opp_decks"], width=120),
             "아키타입": st.column_config.SelectboxColumn("아키타입", options=[""] + st.session_state.metadata["archetypes"], width=110),
             "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=[""] + st.session_state.metadata["win_loss_reasons"], width=110),
-            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=[""] + st.session_state.metadata["target_cards"], width=110),
-            "브릭": st.column_config.TextColumn("브릭", width=50), # 요약행 숫자 표시용
-            "실수": st.column_config.TextColumn("실수", width=50),
-            "비고": st.column_config.TextColumn("비고", width=400)
-        }
-    )
-
-    # 5. 저장 로직 (1행 제외하고 저장)
-    if not edited.equals(display_df):
-        final_save = edited.iloc[1:].reset_index(drop=True)
-        # 브릭/실수 칸은 저장 시 다시 Boolean(True/False)으로 변환
-        for col in ["브릭", "실수"]:
-            final_save[col] = final_save[col].apply(lambda x: str(x).lower() in ['true', '1', 'checked', '✔️'])
-        save_records(final_save)
-        st.rerun()
+            "특정 카드": st.column_config.
         
 # --- PAGE: Analysis ---
 elif page == "📈 Analysis":

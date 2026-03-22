@@ -98,17 +98,20 @@ page = st.sidebar.radio("메뉴", ["📊 Record", "📈 Analysis", "🖼️ Grap
 if page == "📊 Record":
     st.title("📊 Match Record")
     
-    # 1. 새로운 경기 추가 로직 (기능 개선)
+    # [설정] 표의 높이를 여기서 조절하세요 (예: 500, 1000, 2000 등)
+    # 2000 정도로 크게 잡으면 스크롤 없이 아래로 길게 보입니다.
+    TABLE_HEIGHT = 1000 
+
+    # 1. 새로운 경기 추가 로직 (완전 빈 칸 버전)
     if st.button("➕ 새로운 경기 추가"):
-        # NO.는 기존 데이터 개수 + 1로 자동 계산
         new_no = str(len(st.session_state.df) + 1)
         
-        # 모든 셀을 깨끗한 빈 문자열("")로 초기화 (None 방지)
+        # [수정] 선후공, 결과까지 포함하여 모든 텍스트 필드를 ""로 초기화
         new_row = pd.DataFrame([{
             "NO.": new_no, 
             "날짜": "", 
-            "선후공": "선", 
-            "결과": "승", 
+            "선후공": "",  # 기본값 '선' 제거
+            "결과": "",    # 기본값 '승' 제거
             "세트": "", 
             "점수": "", 
             "내 덱": "", 
@@ -121,33 +124,31 @@ if page == "📊 Record":
             "비고": ""
         }])
         
-        # 데이터 병합 및 세션 상태 업데이트
         st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
         save_records(st.session_state.df)
         st.rerun()
 
     # 2. 데이터 에디터 설정
-    # height를 아예 삭제하거나 (기본값은 약 400px 후 스크롤)
-    # 아래처럼 use_container_width만 사용하면 표준적인 데이터 그리드가 생성됩니다.
     edited = st.data_editor(
         st.session_state.df, 
         use_container_width=True, 
         num_rows="dynamic", 
         hide_index=True, 
-        key="editor_vfinal_fixed",
-        # height=None을 삭제했습니다. 대신 필요하다면 매우 큰 숫자(예: 2000)를 넣을 수 있습니다.
+        key="editor_vfinal_custom",
+        height=TABLE_HEIGHT, # 위에서 설정한 높이가 적용됩니다.
         column_config={
             "NO.": st.column_config.TextColumn("NO.", width=50),
             "날짜": st.column_config.TextColumn("날짜", width=70),
-            "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], width=70),
-            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width=60),
-            "세트": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=70),
+            # Selectbox 컬럼들이 빈 값을 허용하도록 설정
+            "선후공": st.column_config.SelectboxColumn("선후공", options=["", "선", "후"], width=70),
+            "결과": st.column_config.SelectboxColumn("결과", options=["", "승", "패"], width=60),
+            "세트": st.column_config.SelectboxColumn("세트", options=["", "OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=70),
             "점수": st.column_config.TextColumn("점수", width=50),
-            "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata["my_decks"], width=110),
-            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata["opp_decks"], width=130),
-            "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata["archetypes"], width=100),
-            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.metadata["win_loss_reasons"], width=100),
-            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata["target_cards"], width=100),
+            "내 덱": st.column_config.SelectboxColumn("내 덱", options=[""] + st.session_state.metadata["my_decks"], width=110),
+            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=[""] + st.session_state.metadata["opp_decks"], width=130),
+            "아키타입": st.column_config.SelectboxColumn("아키타입", options=[""] + st.session_state.metadata["archetypes"], width=100),
+            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=[""] + st.session_state.metadata["win_loss_reasons"], width=100),
+            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=[""] + st.session_state.metadata["target_cards"], width=100),
             "브릭": st.column_config.CheckboxColumn("브릭", width=60),
             "실수": st.column_config.CheckboxColumn("실수", width=60),
             "비고": st.column_config.TextColumn("비고", width=450)

@@ -80,15 +80,57 @@ st.sidebar.title("🎮 메뉴")
 # 사이드바 옵션 텍스트를 변수에 담아 정확히 비교
 page = st.sidebar.radio("이동할 페이지", ["📊 기록", "📈 분석", "⚙️ 설정"])
 
-# [페이지 1: 기록]
-if page == "📊 기록":
-    st.title("📊 전적 기록")
-    # 기록 관련 코드는 이 블록 안에 작성
-    st.info("여기에 기존 기록 관리 코드를 유지하세요.")
+# [페이지 1] Record
+# ---------------------------------------------------------
+if page == "📊 Record":
+    st.title("📊 Record")
+    df = st.session_state.df
+    
+    if st.button("➕ 새로운 경기 추가"):
+        new_no = int(df["NO."].max() + 1) if not df.empty and pd.to_numeric(df["NO."], errors='coerce').notnull().any() else 1
+        new_row = pd.DataFrame([{
+            "NO.": new_no, "날짜": pd.Timestamp.now().strftime("%Y-%m-%d"), 
+            "선후공": "선", "결과": "승", "세트 전적": "OO",
+            "내 덱": st.session_state.metadata["my_decks"][0], 
+            "상대 덱": st.session_state.metadata["opp_decks"][0],
+            "아키타입": st.session_state.metadata["archetypes"][0], 
+            "특정 카드": st.session_state.metadata["target_cards"][0], 
+            "승패 요인": st.session_state.metadata["win_loss_reasons"][0],
+            "실수": False, "브릭": False, "비고": ""
+        }])
+        st.session_state.df = pd.concat([df, new_row], ignore_index=True)
+        st.rerun()
+
+    # 메타데이터를 기반으로 한 드롭다운 설정
+    edited_df = st.data_editor(
+        st.session_state.df, 
+        use_container_width=True, 
+        num_rows="dynamic",
+        hide_index=True,
+        key="rating_editor_v7",
+        column_config={
+            "NO.": st.column_config.NumberColumn("No.", disabled=True, width="small"),
+            "선후공": st.column_config.SelectboxColumn("선/후", options=["선", "후"], width="small"),
+            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width="small"),
+            "세트 전적": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"]),
+            "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata["my_decks"]),
+            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata["opp_decks"]),
+            "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata["archetypes"]),
+            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata["target_cards"]),
+            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.metadata["win_loss_reasons"]),
+            "브릭": st.column_config.CheckboxColumn("브릭"),
+            "실수": st.column_config.CheckboxColumn("실수")
+        }
+    )
+
+    if st.button("💾 Rating 데이터 저장", type="primary"):
+        st.session_state.df = edited_df
+        st.session_state.df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
+        st.success("데이터가 안전하게 저장되었습니다!")
 
 # [페이지 2: 분석]
-elif page == "📈 분석":
-    st.title("📈 상세 분석")
+elif page == "📈 Analysis":
+    st.title("📈 Analysis")
     df = load_records()
     if df.empty:
         st.warning("분석할 전적 데이터가 없습니다.")
@@ -108,8 +150,8 @@ elif page == "📈 분석":
             st.table(create_analysis_table(deck_df))
 
 # [페이지 3: 설정]
-elif page == "⚙️ 설정":
-    st.title("⚙️ 목록 설정")
+elif page == "⚙️ Meta Data":
+    st.title("⚙️ Meta Data")
     meta = st.session_state.metadata
     
     col1, col2 = st.columns(2)

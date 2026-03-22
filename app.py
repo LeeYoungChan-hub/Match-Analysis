@@ -162,30 +162,34 @@ elif page == "📈 Analysis":
     df_ana = load_records()
     
     if not df_ana.empty:
-        # 1. 기존 Overall 요약 표
+        # 1. 상단 Overall 요약
         st.markdown('<div class="analysis-wrapper">', unsafe_allow_html=True)
         st.markdown(render_styled_table("Overall Data", df_ana), unsafe_allow_html=True)
         
-        # 2. 기존 내 덱별 상세 승률
-        st.subheader("내 덱별 상세 승률")
+        # 2. 내 덱 선택 필터
+        st.subheader("내 덱별 상세 분석")
         sel_my = st.selectbox("내 덱 선택", st.session_state.metadata["my_decks"], label_visibility="collapsed")
+        
+        # 3. 선택한 내 덱의 기본 요약 표
         st.markdown(render_styled_table(f"Result: {sel_my}", df_ana[df_ana['내 덱'] == sel_my]), unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
         st.divider()
 
-        # 3. [신규 추가] 상대 덱별 지표 정리 표 (캡처본 스타일)
-        st.subheader("📊 Matchup Analysis")
+        # 4. [수정됨] Setting에 등록된 모든 상대 덱별 지표 표
+        st.subheader(f"📊 {sel_my} Matchup Analysis (All Registered Decks)")
         
-        # 필터링된 데이터 준비 (현재 선택된 '내 덱' 기준)
+        # 현재 내 덱으로 필터링된 데이터
         matchup_df = df_ana[df_ana['내 덱'] == sel_my]
         calc_df = matchup_df[matchup_df['결과'].isin(['승', '패'])]
         
-        if not calc_df.empty:
-            total_games = len(calc_df)
-            unique_opps = calc_df['상대 덱'].unique()
+        # 설정(Setting)에 등록된 모든 상대 덱 리스트 가져오기
+        all_opp_decks = st.session_state.metadata.get("opp_decks", [])
+        
+        if all_opp_decks:
+            total_games_all = len(calc_df)
             
-            # 상단 Total 행 데이터 계산
+            # 상단 Total 합계 행 계산
             tw = len(calc_df[calc_df['결과'] == '승'])
             tl = len(calc_df[calc_df['결과'] == '패'])
             tf = calc_df[calc_df['선후공'] == '선']
@@ -193,40 +197,51 @@ elif page == "📈 Analysis":
             tfw = (len(tf[tf['결과'] == '승']) / len(tf) * 100) if len(tf) > 0 else 0
             tsw = (len(ts[ts['결과'] == '승']) / len(ts) * 100) if len(ts) > 0 else 0
 
-            # 표 본문 생성
+            # 표 본문 생성 (설정된 모든 덱을 순회)
             rows_html = f"""
                 <tr style="background-color: #fff2cc; font-weight: bold;">
-                    <td>Total</td><td>{total_games}</td><td class="win-val">{tw}</td><td class="loss-val">{tl}</td>
-                    <td>{(tw/total_games*100):.2f}%</td><td>{tfw:.2f}%</td><td>{tsw:.2f}%</td><td>100.00%</td><td>-</td>
+                    <td>Total</td><td>{total_games_all}</td><td class="win-val">{tw}</td><td class="loss-val">{tl}</td>
+                    <td>{(tw/total_games_all*100 if total_games_all>0 else 0):.2f}%</td>
+                    <td>{tfw:.2f}%</td><td>{tsw:.2f}%</td><td>100.00%</td><td>-</td>
                 </tr>
             """
 
-            for opp in unique_opps:
+            for opp in all_opp_decks:
+                # 해당 상대 덱의 데이터만 추출
                 opp_sub = calc_df[calc_df['상대 덱'] == opp]
                 g = len(opp_sub)
-                w = len(opp_sub[opp_sub['결과'] == '승'])
-                l = len(opp_sub[opp_sub['결과'] == '패'])
                 
-                f_sub = opp_sub[opp_sub['선후공'] == '선']
-                s_sub = opp_sub[opp_sub['선후공'] == '후']
-                fw = (len(f_sub[f_sub['결과'] == '승']) / len(f_sub) * 100) if len(f_sub) > 0 else 0
-                sw = (len(s_sub[s_sub['결과'] == '승']) / len(s_sub) * 100) if len(s_sub) > 0 else 0
-                
-                share = (g / total_games * 100)
-                arch_count = len(opp_sub[opp_sub['아키타입'] != ""])
-                arch_share = (arch_count / g * 100)
+                if g > 0:
+                    # 데이터가 있는 경우 계산
+                    w = len(opp_sub[opp_sub['결과'] == '승'])
+                    l = len(opp_sub[opp_sub['결과'] == '패'])
+                    f_sub = opp_sub[opp_sub['선후공'] == '선']
+                    s_sub = opp_sub[opp_sub['선후공'] == '후']
+                    fw = (len(f_sub[f_sub['결과'] == '승']) / len(f_sub) * 100) if len(f_sub) > 0 else 0
+                    sw = (len(s_sub[s_sub['결과'] == '승']) / len(s_sub) * 100) if len(s_sub) > 0 else 0
+                    share = (g / total_games_all * 100)
+                    arch_count = len(opp_sub[opp_sub['아키타입'] != ""])
+                    arch_share = (arch_count / g * 100)
+                    
+                    rows_html += f"""
+                        <tr>
+                            <td>{opp}</td><td>{g}</td><td class="win-val">{w}</td><td class="loss-val">{l}</td>
+                            <td>{(w/g*100):.2f}%</td><td>{fw:.2f}%</td><td>{sw:.2f}%</td><td>{share:.2f}%</td><td>{arch_share:.2f}%</td>
+                        </tr>
+                    """
+                else:
+                    # 데이터가 없는 경우 (0으로 표시)
+                    rows_html += f"""
+                        <tr style="color: #999;">
+                            <td>{opp}</td><td>0</td><td>0</td><td>0</td>
+                            <td>0.00%</td><td>0.00%</td><td>0.00%</td><td>0.00%</td><td>0.00%</td>
+                        </tr>
+                    """
 
-                rows_html += f"""
-                    <tr>
-                        <td>{opp}</td><td>{g}</td><td class="win-val">{w}</td><td class="loss-val">{l}</td>
-                        <td>{(w/g*100):.2f}%</td><td>{fw:.2f}%</td><td>{sw:.2f}%</td><td>{share:.2f}%</td><td>{arch_share:.2f}%</td>
-                    </tr>
-                """
-
-            # 전체 테이블 출력
+            # 최종 테이블 출력
             st.markdown(f"""
-                <table class="styled-table" style="table-layout: auto;">
-                    <tr style="background-color: #fbbc04 !important;">
+                <table class="styled-table" style="table-layout: auto; width: 100%;">
+                    <tr style="background-color: #fbbc04 !important; color: black;">
                         <th>Matchup</th><th>Total</th><th>W</th><th>L</th>
                         <th>W%</th><th>1st W%</th><th>2nd W%</th><th>Share</th><th>Plus Arch</th>
                     </tr>
@@ -234,7 +249,9 @@ elif page == "📈 Analysis":
                 </table>
             """, unsafe_allow_html=True)
         else:
-            st.info("선택한 덱의 경기 기록이 없습니다.")
+            st.info("Setting에서 상대 덱을 먼저 등록해 주세요.")
+    else:
+        st.warning("먼저 'Record' 페이지에서 경기를 기록해 주세요.")
 
 else:
     st.title("⚙️ Setting")

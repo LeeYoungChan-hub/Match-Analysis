@@ -18,7 +18,6 @@ def load_data():
         return df
     else:
         columns = ["NO.", "날짜", "선후공", "결과", "세트 전적", "점수", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
-        # 초기 가이드 행 설정
         sub_label_row = {
             "NO.": "경기", "날짜": "Date", "선후공": "0.00%", "결과": "0.00%", 
             "세트 전적": "Result", "점수": "0", "내 덱": "Use.deck", 
@@ -50,7 +49,7 @@ if 'options' not in st.session_state:
 tab1, tab2 = st.tabs(["📊 Record", "⚙️ Setting"])
 
 # ---------------------------------------------------------
-# TAB 1: Record (마지막 점수 실시간 반영 최적화)
+# TAB 1: Record
 # ---------------------------------------------------------
 with tab1:
     st.title("📊 Rating Dashboard")
@@ -85,37 +84,27 @@ with tab1:
             }
         )
 
-        # 통계 및 마지막 데이터 추출
         total_games = len(edited_data)
         if total_games > 0:
-            # 1. 승률 및 선공 비율
             win_rate = (edited_data["결과"] == "승").sum() / total_games * 100
             first_rate = (edited_data["선후공"] == "선").sum() / total_games * 100
             
-            # 2. 마지막 행 데이터 추출 (NO. 및 점수)
             last_row = edited_data.iloc[-1]
             last_no = str(last_row["NO."]) if pd.notna(last_row["NO."]) and str(last_row["NO."]).strip() != "" else "경기"
             last_score = str(last_row["점수"]) if pd.notna(last_row["점수"]) and str(last_row["점수"]).strip() != "" else "0"
             
-            # 3. 가이드 행 업데이트 (점수 칸에 'Rate' 대신 마지막 숫자 반영)
             edited_guide.at[0, "결과"] = f"{win_rate:.2f}%"
             edited_guide.at[0, "선후공"] = f"{first_rate:.2f}%"
             edited_guide.at[0, "브릭"] = str(edited_data["브릭"].sum())
             edited_guide.at[0, "실수"] = str(edited_data["실수"].sum())
             edited_guide.at[0, "NO."] = last_no      
-            edited_guide.at[0, "점수"] = last_score   # <--- 'Rate' 대신 실제 마지막 점수 노출
+            edited_guide.at[0, "점수"] = last_score   
             
-            # 나머지 영어 서브 라벨 유지
-            edited_guide.at[0, "날짜"] = "Date"
-            edited_guide.at[0, "세트 전적"] = "Result"
-            edited_guide.at[0, "내 덱"] = "Use.deck"
-            edited_guide.at[0, "상대 덱"] = "Opp. deck"
-            edited_guide.at[0, "아키타입"] = "Plus Arch."
-            edited_guide.at[0, "승패 요인"] = "W/L Factor"
-            edited_guide.at[0, "특정 카드"] = "Certain Card"
-            edited_guide.at[0, "비고"] = "Detail"
+            edited_guide.at[0, "날짜"], edited_guide.at[0, "세트 전적"] = "Date", "Result"
+            edited_guide.at[0, "내 덱"], edited_guide.at[0, "상대 덱"] = "Use.deck", "Opp. deck"
+            edited_guide.at[0, "아키타입"], edited_guide.at[0, "승패 요인"] = "Plus Arch.", "W/L Factor"
+            edited_guide.at[0, "특정 카드"], edited_guide.at[0, "비고"] = "Certain Card", "Detail"
 
-        # 세션 업데이트 및 자동 저장
         new_df = pd.concat([edited_guide, edited_data], ignore_index=True)
         if not new_df.equals(st.session_state.df):
             st.session_state.df = new_df
@@ -137,8 +126,17 @@ with tab2:
     factors_raw = col4.text_area("승패 요인", "\n".join(st.session_state.options["승패 요인"]), height=150)
     arch_raw = col5.text_area("아키타입", "\n".join(st.session_state.options["아키타입"]), height=150)
 
+    # 에러가 났던 지점: 따옴표와 줄바꿈을 안전하게 수정했습니다.
     new_options = {
         "내 덱": [x.strip() for x in my_decks_raw.split("\n") if x.strip()],
         "상대 덱": [x.strip() for x in opp_decks_raw.split("\n") if x.strip()],
         "특정 카드": [x.strip() for x in cards_raw.split("\n") if x.strip()],
-        "승패 요인": [x.strip() for x in factors_raw.split("\
+        "승패 요인": [x.strip() for x in factors_raw.split("\n") if x.strip()],
+        "아키타입": [x.strip() for x in arch_raw.split("\n") if x.strip()],
+        "table_height": 20000
+    }
+
+    if new_options != st.session_state.options:
+        st.session_state.options = new_options
+        with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(new_options, f, ensure_ascii=False, indent=4)

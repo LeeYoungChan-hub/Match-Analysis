@@ -18,8 +18,7 @@ st.markdown("""
         font-size: 13px !important;
     }
 
-    /* Record 페이지 헤더 색상 (이미지의 민트/오렌지/노랑 반영) */
-    /* 1~5번 컬럼: NO, 날짜, 선후공, 결과, 세트 (민트색) */
+    /* Record 페이지 헤더 색상 */
     div[data-testid="stDataFrameResizable"] th:nth-child(1),
     div[data-testid="stDataFrameResizable"] th:nth-child(2),
     div[data-testid="stDataFrameResizable"] th:nth-child(3),
@@ -28,7 +27,6 @@ st.markdown("""
         background-color: #a2d5c6 !important;
         color: #31333F !important;
     }
-    /* 6~11번 컬럼: 내 덱, 상대 덱, 아키타입, 승패 요인, 특정 카드 (오렌지색) */
     div[data-testid="stDataFrameResizable"] th:nth-child(6),
     div[data-testid="stDataFrameResizable"] th:nth-child(7),
     div[data-testid="stDataFrameResizable"] th:nth-child(8),
@@ -37,13 +35,12 @@ st.markdown("""
     div[data-testid="stDataFrameResizable"] th:nth-child(11) {
         background-color: #f9cb9c !important;
     }
-    /* 12~13번 컬럼: 브릭, 실수 (노란색) */
     div[data-testid="stDataFrameResizable"] th:nth-child(12),
     div[data-testid="stDataFrameResizable"] th:nth-child(13) {
         background-color: #ffe599 !important;
     }
 
-    /* Analysis 페이지 요약 표 스타일 */
+    /* 분석 페이지 요약 표 스타일 */
     .styled-table { 
         width: 100%; font-size: 12px; border-collapse: collapse; 
         margin-bottom: 20px; table-layout: fixed; border: 1px solid #dee2e6;
@@ -56,7 +53,19 @@ st.markdown("""
     .loss-val { color: #ff0000 !important; font-weight: bold; }
     
     .analysis-left-wrapper { max-width: 450px; }
+
+    /* 맞춤법 빨간줄 제거를 위한 속성 강제 적용 */
+    textarea, input {
+        spellcheck: false !important;
+    }
     </style>
+    
+    <script>
+    // 브라우저 레벨에서 맞춤법 검사 비활성화
+    document.querySelectorAll('textarea, input').forEach(el => {
+        el.setAttribute('spellcheck', 'false');
+    });
+    </script>
 """, unsafe_allow_html=True)
 
 # --- 3. 데이터 관리 로직 ---
@@ -104,7 +113,7 @@ def render_summary_table(title, target_df):
             <tr><th>Overall</th><th>Games</th><th>Win Rate</th><th>W</th><th>L</th></tr>
             <tr><td>Result</td><td>{total}</td><td>{(w/total*100):.2f}%</td><td class="win-val">{w}</td><td class="loss-val">{l}</td></tr>
             <tr><th>Coin</th><th>1st</th><th>2nd</th><th>1st Rate</th><th>2nd Rate</th></tr>
-            <tr><td>Result</td><td class="win-val">{f_t}</td><td class="loss-val">{s_t}</td><td class="win-val">{(f_t/total*100):.1f}%</td><td class="loss-val">{(s_t/total*100):.1f}%</td></tr>
+            <tr><td>Result</td><td class="win-val">{f_t}</td><td class="loss-val">{s_t}</td><td class="win-val">{(f_t/total*100 if total>0 else 0):.1f}%</td><td class="loss-val">{(s_t/total*100 if total>0 else 0):.1f}%</td></tr>
             <tr><th>1st</th><th>1st Win</th><th>1st Lose</th><th>1st W%</th><th>1st L%</th></tr>
             <tr><td>Result</td><td class="win-val">{f_w}</td><td class="loss-val">{f_t-f_w}</td><td class="win-val">{(f_w/f_t*100 if f_t>0 else 0):.1f}%</td><td class="loss-val">{(100-(f_w/f_t*100) if f_t>0 else 0):.1f}%</td></tr>
             <tr><th>2nd</th><th>2nd Win</th><th>2nd Lose</th><th>2nd W%</th><th>2nd L%</th></tr>
@@ -129,7 +138,7 @@ if page == "📊 Record":
         st.rerun()
 
     edited = st.data_editor(
-        st.session_state.df, use_container_width=True, num_rows="dynamic", hide_index=True, key="editor_vfinal",
+        st.session_state.df, use_container_width=True, num_rows="dynamic", hide_index=True, key="editor_final_v2",
         column_config={
             "NO.": st.column_config.TextColumn("NO.", width=40),
             "날짜": st.column_config.TextColumn("날짜", width=60),
@@ -204,16 +213,30 @@ elif page == "📈 Analysis":
 # --- PAGE: Setting ---
 else:
     st.title("⚙️ Setting")
+    st.info("각 항목을 한 줄에 하나씩 입력해 주세요 (Enter로 구분).")
     meta = st.session_state.metadata
+    
     c1, c2 = st.columns(2)
-    with c1: new_my = st.text_area("내 덱 (쉼표 구분)", ", ".join(meta["my_decks"]))
-    with c2: new_opp = st.text_area("상대 덱 (쉼표 구분)", ", ".join(meta["opp_decks"]))
+    # 줄바꿈(\n)으로 표시되도록 리스트를 문자열로 합침
+    with c1: new_my = st.text_area("내 덱 (한 줄에 하나)", "\n".join(meta["my_decks"]), height=200)
+    with c2: new_opp = st.text_area("상대 덱 (한 줄에 하나)", "\n".join(meta["opp_decks"]), height=200)
+    
     c3, c4 = st.columns(2)
-    with c3: new_reasons = st.text_area("승패 요인 (쉼표 구분)", ", ".join(meta["win_loss_reasons"]))
-    with c4: new_arche = st.text_area("아키타입 (쉼표 구분)", ", ".join(meta["archetypes"]))
-    new_cards = st.text_area("특정 카드 (쉼표 구분)", ", ".join(meta["target_cards"]))
+    with c3: new_reasons = st.text_area("승패 요인 (한 줄에 하나)", "\n".join(meta["win_loss_reasons"]), height=150)
+    with c4: new_arche = st.text_area("아키타입 (한 줄에 하나)", "\n".join(meta["archetypes"]), height=150)
+    
+    new_cards = st.text_area("특정 카드 (한 줄에 하나)", "\n".join(meta["target_cards"]), height=150)
+    
     if st.button("✅ 설정 저장"):
-        st.session_state.metadata = {"my_decks":[x.strip() for x in new_my.split(",")], "opp_decks":[x.strip() for x in new_opp.split(",")], "win_loss_reasons":[x.strip() for x in new_reasons.split(",")], "archetypes":[x.strip() for x in new_arche.split(",")], "target_cards":[x.strip() for x in new_cards.split(",")]}
-        with open(META_FILE, 'w', encoding='utf-8') as f: json.dump(st.session_state.metadata, f, ensure_ascii=False, indent=4)
-        st.success("저장 완료!")
+        # 줄바꿈으로 분리하고 빈 줄은 제거
+        st.session_state.metadata = {
+            "my_decks": [x.strip() for x in new_my.split("\n") if x.strip()],
+            "opp_decks": [x.strip() for x in new_opp.split("\n") if x.strip()],
+            "win_loss_reasons": [x.strip() for x in new_reasons.split("\n") if x.strip()],
+            "archetypes": [x.strip() for x in new_arche.split("\n") if x.strip()],
+            "target_cards": [x.strip() for x in new_cards.split("\n") if x.strip()]
+        }
+        with open(META_FILE, 'w', encoding='utf-8') as f:
+            json.dump(st.session_state.metadata, f, ensure_ascii=False, indent=4)
+        st.success("설정이 저장되었습니다!")
         st.rerun()

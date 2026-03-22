@@ -98,53 +98,79 @@ page = st.sidebar.radio("메뉴", ["📊 Record", "📈 Analysis", "🖼️ Grap
 if page == "📊 Record":
     st.title("📊 Match Record")
     
-    # [조절] 표의 높이를 숫자로 지정 (예: 1000, 2000 등)
+    # [설정] 표 높이 조절
     TABLE_HEIGHT = 1000 
+    
+    # --- 1. 실시간 요약 통계 계산 ---
+    df_calc = st.session_state.df.copy()
+    total_games = len(df_calc[df_calc['결과'].isin(['승', '패'])])
+    
+    # 선공률 계산
+    first_count = len(df_calc[df_calc['선후공'] == '선'])
+    first_rate = f"{(first_count / total_games * 100):.1f}%" if total_games > 0 else "0%"
+    
+    # 승률 계산
+    win_count = len(df_calc[df_calc['결과'] == '승'])
+    win_rate = f"{(win_count / total_games * 100):.1f}%" if total_games > 0 else "0%"
+    
+    # 브릭/실수 합계 (Boolean 컬럼 합산)
+    total_bricks = df_calc['브릭'].sum() if '브릭' in df_calc.columns else 0
+    total_mistakes = df_calc['실수'].sum() if '실수' in df_calc.columns else 0
 
-    # 1. 새로운 경기 추가 (완전 빈 행 생성)
+    # --- 2. 상단 요약 정보 (Info/Metrics) ---
+    # 요청하신 2층 구조를 시각적으로 보여주기 위해 표 형식의 컨테이너를 사용합니다.
+    st.markdown(f"""
+    <table style="width:100%; border-collapse: collapse; text-align: center; font-size: 13px; margin-bottom: 10px;">
+        <tr style="background-color: #f0f2f6; font-weight: bold;">
+            <td>NO.</td><td>날짜</td><td>선후공</td><td>결과</td><td>세트</td><td>점수</td><td>내 덱</td><td>상대 덱</td><td>아키타입</td><td>승패 요인</td><td>특정 카드</td><td>브릭</td><td>실수</td><td>비고</td>
+        </tr>
+        <tr style="background-color: #ffffff;">
+            <td><b>경기</b></td><td><b>Date</b></td><td><b style="color:blue;">{first_rate}</b></td><td><b style="color:red;">{win_rate}</b></td><td><b>Result</b></td><td><b>Score</b></td><td><b>Use.deck</b></td><td><b>Opp.deck</b></td><td><b>Plus Arch.</b></td><td><b>W/L Factor</b></td><td><b>Certain Card</b></td><td><b style="color:orange;">{total_bricks}</b></td><td><b style="color:orange;">{total_mistakes}</b></td><td><b>Detailed</b></td>
+        </tr>
+    </table>
+    """, unsafe_allow_html=True)
+
+    # --- 3. 새로운 경기 추가 버튼 ---
     if st.button("➕ 새로운 경기 추가"):
         new_no = str(len(st.session_state.df) + 1)
-        
-        # 모든 값을 ""로 설정하여 None 노출 방지
         new_row = pd.DataFrame([{
             "NO.": new_no, "날짜": "", "선후공": "", "결과": "", 
             "세트": "", "점수": "", "내 덱": "", "상대 덱": "", 
             "아키타입": "", "승패 요인": "", "특정 카드": "", 
             "브릭": False, "실수": False, "비고": ""
         }])
-        
         st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
         save_records(st.session_state.df)
         st.rerun()
 
-    # 2. 데이터 에디터 (표 안에 없는 값도 빈칸으로 보이도록 설정)
-    # options 앞에 [""]를 붙여 목록에 없는 상태를 빈 칸으로 표현합니다.
+    # --- 4. 메인 데이터 에디터 ---
+    # options 맨 앞에 [""]를 추가하여 None 대신 빈 칸 선택을 허용합니다.
     edited = st.data_editor(
         st.session_state.df, 
         use_container_width=True, 
         num_rows="dynamic", 
         hide_index=True, 
-        key="editor_final_no_none",
+        key="editor_final_summary_v1",
         height=TABLE_HEIGHT,
         column_config={
-            "NO.": st.column_config.TextColumn("NO.", width=60),
+            "NO.": st.column_config.TextColumn("NO.", width=50),
             "날짜": st.column_config.TextColumn("날짜", width=70),
             "선후공": st.column_config.SelectboxColumn("선후공", options=["", "선", "후"], width=70),
             "결과": st.column_config.SelectboxColumn("결과", options=["", "승", "패"], width=60),
-            "세트": st.column_config.SelectboxColumn("세트", options=["", "OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=60),
-            "점수": st.column_config.TextColumn("점수", width=60),
-            "내 덱": st.column_config.SelectboxColumn("내 덱", options=[""] + st.session_state.metadata["my_decks"], width=100),
-            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=[""] + st.session_state.metadata["opp_decks"], width=100),
+            "세트": st.column_config.SelectboxColumn("세트", options=["", "OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=70),
+            "점수": st.column_config.TextColumn("점수", width=50),
+            "내 덱": st.column_config.SelectboxColumn("내 덱", options=[""] + st.session_state.metadata["my_decks"], width=110),
+            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=[""] + st.session_state.metadata["opp_decks"], width=130),
             "아키타입": st.column_config.SelectboxColumn("아키타입", options=[""] + st.session_state.metadata["archetypes"], width=100),
             "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=[""] + st.session_state.metadata["win_loss_reasons"], width=100),
-            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=[""] + st.session_state.metadata["target_cards"], width=80),
+            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=[""] + st.session_state.metadata["target_cards"], width=100),
             "브릭": st.column_config.CheckboxColumn("브릭", width=60),
             "실수": st.column_config.CheckboxColumn("실수", width=60),
             "비고": st.column_config.TextColumn("비고", width=450)
         }
     )
 
-    # 3. 변경 사항 저장
+    # 데이터 변경 시 저장
     if not edited.equals(st.session_state.df):
         save_records(edited)
         st.rerun()

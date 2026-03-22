@@ -10,13 +10,13 @@ FILENAME = "2026.03 레이팅 - Record.csv"
 if 'df' not in st.session_state:
     try:
         st.session_state.df = pd.read_csv(FILENAME)
-        # 브릭, 실수 컬럼을 불리언(True/False) 타입으로 변환 (체크박스 호환)
+        # 체크박스 호환을 위한 데이터 변환
         st.session_state.df['브릭'] = st.session_state.df['브릭'].map({'TRUE': True, 'FALSE': False, True: True, False: False}).fillna(False)
         st.session_state.df['실수'] = st.session_state.df['실수'].map({'TRUE': True, 'FALSE': False, True: True, False: False}).fillna(False)
     except:
         columns = ["NO.", "날짜", "선후공", "결과", "세트 전적", "점수", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
         sub_label_row = {
-            "NO.": "경기", "날짜": "Date", "선후공": "40.46%", "결과": "62.43%", 
+            "NO.": "경기", "날짜": "Date", "선후공": "0.00%", "결과": "0.00%", 
             "세트 전적": "Result", "점수": "Rate", "내 덱": "Use.deck", 
             "상대 덱": "Opp. deck", "아키타입": "Plus Arch.", "승패 요인": "W/L Factor",
             "특정 카드": "Certain Card", "브릭": "0", "실수": "0", "비고": "Deatil"
@@ -45,19 +45,15 @@ with tab1:
     guide_df = st.session_state.df.iloc[[0]].copy()
     data_df = st.session_state.df.iloc[1:].copy()
 
-    # 가이드 행 에디터 (브릭/실수 합계 표시)
+    # 가이드 행 에디터
     st.subheader("📋 가이드 및 통계 (수정 가능)")
     edited_guide = st.data_editor(
         guide_df, 
         use_container_width=True, 
-        key="guide_editor",
-        column_config={
-            "브릭": st.column_config.Column("브릭 (총합)"),
-            "실수": st.column_config.Column("실수 (총합)")
-        }
+        key="guide_editor"
     )
 
-    # 실제 데이터 에디터 (체크박스 적용)
+    # 실제 데이터 에디터
     st.subheader("📝 경기 기록")
     edited_data = st.data_editor(
         data_df,
@@ -73,42 +69,55 @@ with tab1:
             "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.options["특정 카드"]),
             "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.options["승패 요인"]),
             "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.options["아키타입"]),
-            # 브릭과 실수를 체크박스로 설정
             "브릭": st.column_config.CheckboxColumn("브릭", default=False),
             "실수": st.column_config.CheckboxColumn("실수", default=False),
         }
     )
 
-    # 데이터 저장 버튼 클릭 시 합계 계산 후 업데이트
+    # 데이터 저장 버튼 및 자동 계산 로직
     if st.button("💾 데이터 저장"):
-        # 실제 데이터에서 체크된 개수 계산
-        brick_count = edited_data["브릭"].sum()
-        mistake_count = edited_data["실수"].sum()
+        total_games = len(edited_data)
         
-        # 가이드 행의 브릭/실수 값을 업데이트된 합계로 변경
-        edited_guide.at[0, "브릭"] = str(brick_count)
-        edited_guide.at[0, "실수"] = str(mistake_count)
-        
-        # 합친 데이터를 세션에 저장
+        if total_games > 0:
+            # 1. 승률 계산
+            win_count = len(edited_data[edited_data["결과"] == "승"])
+            win_rate = (win_count / total_games) * 100
+            
+            # 2. 선공 비율 계산
+            first_count = len(edited_data[edited_data["선후공"] == "선"])
+            first_rate = (first_count / total_games) * 100
+            
+            # 3. 브릭/실수 합계 계산
+            brick_sum = edited_data["브릭"].sum()
+            mistake_sum = edited_data["실수"].sum()
+            
+            # 가이드 행 업데이트
+            edited_guide.at[0, "결과"] = f"{win_rate:.2f}%"
+            edited_guide.at[0, "선후공"] = f"{first_rate:.2f}%"
+            edited_guide.at[0, "브릭"] = str(brick_sum)
+            edited_guide.at[0, "실수"] = str(mistake_sum)
+            edited_guide.at[0, "NO."] = f"{total_games}판"
+
+        # 데이터 합치기
         st.session_state.df = pd.concat([edited_guide, edited_data], ignore_index=True)
-        st.success(f"저장 완료! (브릭 합계: {brick_count}, 실수 합계: {mistake_count})")
-        st.rerun() # 변경된 합계를 화면에 즉시 반영
+        st.success("데이터 및 통계가 업데이트되었습니다!")
+        st.rerun()
 
     csv = st.session_state.df.to_csv(index=False).encode('utf-8-sig')
     st.download_button("📥 CSV 다운로드", data=csv, file_name=FILENAME, mime='text/csv')
 
 # ---------------------------------------------------------
-# TAB 2: Setting 페이지 (기존과 동일)
+# TAB 2: Setting 페이지
 # ---------------------------------------------------------
 with tab2:
     st.title("⚙️ Setting")
     col1, col2, col3 = st.columns(3)
     with col1:
-        my_decks = st.text_area("내 덱 목록", value="\n".join(st.session_state.options["내 덱"]), height=250)
+        my_decks = st.text_area("내 덱 목록", value="\n".join(st.session_state.options["내 덱"]), height=200)
     with col2:
-        opp_decks = st.text_area("상대 덱 목록", value="\n".join(st.session_state.options["상대 덱"]), height=250)
+        opp_decks = st.text_area("상대 덱 목록", value="\n".join(st.session_state.options["상대 덱"]), height=200)
     with col3:
-        specific_cards = st.text_area("특정 카드 목록", value="\n".join(st.session_state.options["특정 카드"]), height=250)
+        specific_cards = st.text_area("특정 카드 목록", value="\n".join(st.session_state.options["특정 카드"]), height=200)
     
     col4, col5 = st.columns(2)
     with col4:

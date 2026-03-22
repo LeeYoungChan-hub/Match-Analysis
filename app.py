@@ -103,8 +103,7 @@ if page == "📊 Record":
         # NO.는 기존 데이터 개수 + 1로 자동 계산
         new_no = str(len(st.session_state.df) + 1)
         
-        # [수정] 모든 셀을 None이 아닌 깨끗한 빈 문자열("")로 초기화
-        # 선후공/결과는 기본값이 있어야 에디터에서 바로 선택하기 편하므로 기본값 유지
+        # 모든 셀을 깨끗한 빈 문자열("")로 초기화 (None 방지)
         new_row = pd.DataFrame([{
             "NO.": new_no, 
             "날짜": "", 
@@ -127,15 +126,16 @@ if page == "📊 Record":
         save_records(st.session_state.df)
         st.rerun()
 
-    # 2. 데이터 에디터 설정 (디자인 개선)
-    # height=None 설정으로 데이터 양에 따라 표가 아래로 무제한 늘어납니다.
+    # 2. 데이터 에디터 설정
+    # height를 아예 삭제하거나 (기본값은 약 400px 후 스크롤)
+    # 아래처럼 use_container_width만 사용하면 표준적인 데이터 그리드가 생성됩니다.
     edited = st.data_editor(
         st.session_state.df, 
         use_container_width=True, 
         num_rows="dynamic", 
         hide_index=True, 
-        key="editor_infinite_v2",
-        height=None,  # <--- 표의 높이를 데이터 길이에 맞춤 (무제한 확장)
+        key="editor_vfinal_fixed",
+        # height=None을 삭제했습니다. 대신 필요하다면 매우 큰 숫자(예: 2000)를 넣을 수 있습니다.
         column_config={
             "NO.": st.column_config.TextColumn("NO.", width=50),
             "날짜": st.column_config.TextColumn("날짜", width=70),

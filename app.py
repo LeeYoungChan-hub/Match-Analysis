@@ -12,6 +12,7 @@ st.set_page_config(page_title="YGO Rating Analysis", layout="wide")
 # --- 2. [디자인] 시스템 인덱스 숨기기 및 레이아웃 ---
 st.markdown("""
     <style>
+    /* 시스템 인덱스 열(0,1,2...) 절대 표시 안함 */
     [data-testid="stTableIdxColumn"] { display: none !important; }
     .analysis-wrapper { width: 33%; margin-left: 0; }
     .styled-table { width: 100%; font-size: 14px; border-collapse: collapse; margin-bottom: 30px; table-layout: fixed; }

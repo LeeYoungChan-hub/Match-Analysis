@@ -11,18 +11,18 @@ FILENAME = "2026.03 레이팅 - Record.csv"
 
 if 'df' not in st.session_state:
     try:
-        # 기존 파일 로드 시도
+        # 기존 파일 로드
         df = pd.read_csv(FILENAME)
         st.session_state.df = df
     except:
-        # 파일이 없을 경우 사진 구조 그대로 생성
+        # 파일이 없을 경우 사진 구조 그대로 생성 (Deatil 컬럼 삭제)
         columns = [
             "NO.", "날짜", "선후공", "결과", "세트 전적", "점수", 
             "내 덱", "상대 덱", "아키타입", "승패 요인", 
-            "특정 카드", "브릭", "실수", "비고", "Deatil"
+            "특정 카드", "브릭", "실수", "비고"
         ]
         
-        # 1행: 사진과 동일한 서브 라벨 행 (Deatil 포함)
+        # 1행: 비고 아래에 Deatil이 오도록 설정
         sub_label_row = {
             "NO.": "경기", 
             "날짜": "Date", 
@@ -37,8 +37,7 @@ if 'df' not in st.session_state:
             "특정 카드": "Certain Card", 
             "브릭": "10", 
             "실수": "30", 
-            "비고": "", 
-            "Deatil": "Deatil" # 비고 옆 Deatil을 1행으로 이동
+            "비고": "Deatil" # 비고 컬럼의 첫 행 값을 Deatil로 설정
         }
         st.session_state.df = pd.DataFrame([sub_label_row], columns=columns)
 
@@ -62,8 +61,8 @@ edited_df = st.data_editor(
             "세트 전적",
             options=["Result", "OO", "OXO", "XOO", "XX", "XOX", "OXX"]
         ),
-        # Deatil 컬럼 설정 (헤더는 깔끔하게 유지)
-        "Deatil": st.column_config.Column("Deatil")
+        # 비고 컬럼 설정
+        "비고": st.column_config.Column("비고")
     }
 )
 
@@ -84,4 +83,4 @@ with col_down:
         mime='text/csv',
     )
 
-st.info("💡 첫 번째 행은 가이드라인입니다. 실제 데이터는 두 번째 행부터 입력해 주세요.")
+st.info("💡 첫 번째 행은 가이드라인입니다. '비고' 열의 첫 행에 'Deatil'이 표시됩니다.")

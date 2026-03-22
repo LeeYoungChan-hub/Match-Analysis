@@ -126,7 +126,7 @@ if page == "📊 Rating (전적 기록/분석)":
         st.rerun()
 
     # 데이터 에디터
-  edited_df = st.data_editor(
+ edited_df = st.data_editor(
     st.session_state.df, 
     use_container_width=True, 
     num_rows="dynamic",

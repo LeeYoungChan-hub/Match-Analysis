@@ -12,20 +12,22 @@ st.set_page_config(page_title="YGO Rating Analysis", layout="wide")
 # --- 2. [디자인] 인덱스 열(0,1,2...) 절대 박멸 CSS ---
 st.markdown("""
     <style>
-    /* 1. 데이터 에디터의 인덱스 열 강제 숨김 */
+    /* 1. 시스템 인덱스 열(0,1,2...) 강제 숨김 */
     [data-testid="stTableIdxColumn"] {
         display: none !important;
-        width: 0px !important;
     }
-    /* 2. 테이블 헤더의 인덱스 부분 숨김 */
-    th.col_heading.level0.index_name {
+
+    /* 2. NO. 칸의 연필 아이콘과 줄 3개 핸들 투명화 */
+    /* 첫 번째 컬럼(NO.) 내의 아이콘들만 타겟팅합니다 */
+    [data-testid="stDataFrameResizable"] div[role="grid"] div[role="row"] div:first-child svg {
         display: none !important;
     }
-    /* 3. 에디터 셀 내부 인덱스 넘버링 숨김 */
-    .row-widget.stDataFrame div[role="grid"] div[role="rowgroup"] div[role="row"] div:first-child {
-        border: none !important;
+
+    /* 3. 마우스 호버 시 나타나는 편집 배경색 제거 (선택 사항) */
+    [data-testid="stDataFrameResizable"] div[role="grid"] div[role="row"] div:first-child:hover {
+        background-color: transparent !important;
     }
-    
+
     .analysis-wrapper { width: 33%; margin-left: 0; }
     .styled-table { width: 100%; font-size: 14px; border-collapse: collapse; margin-bottom: 30px; table-layout: fixed; }
     .styled-table td { text-align: center !important; border: 1px solid #dee2e6 !important; padding: 10px !important; }

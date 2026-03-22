@@ -7,7 +7,7 @@ import json
 RECORD_FILE = 'yugioh_records.csv'
 META_FILE = 'metadata_config.json'
 
-st.set_page_config(page_title="YGO Rating Analysis", layout="wide")
+st.set_page_config(page_title="26.03 Rating", layout="wide")
 
 # --- 2. CSS ---
 st.markdown("""

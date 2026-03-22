@@ -10,12 +10,28 @@ META_FILE = 'metadata_config.json'
 
 st.set_page_config(page_title="YGO Rating System", layout="wide")
 
-# 🔥 [UI 최적화] 줄 3개/연필 숨기기 CSS
+# 🔥 [에러 방지 및 중앙 정렬] CSS 주입
+# alignment 옵션 대신 이 CSS가 모든 셀의 텍스트를 중앙으로 보냅니다.
 st.markdown("""
     <style>
+    /* 행 번호 및 아이콘 숨기기 */
     [data-testid="stTableIdxColumn"] { display: none; }
     .st-ae svg { display: none !important; }
     [data-testid="stDataEditorToolbar"] { display: none; }
+    
+    /* 표 내부 모든 텍스트/숫자/드롭다운 중앙 정렬 */
+    div[data-testid="stDataFrame"] div[role="gridcell"] > div {
+        justify-content: center !important;
+        text-align: center !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    
+    /* 헤더(컬럼명) 중앙 정렬 */
+    div[data-testid="stDataFrame"] div[role="columnheader"] > div {
+        justify-content: center !important;
+        text-align: center !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -25,8 +41,6 @@ def load_metadata():
         with open(META_FILE, 'r', encoding='utf-8') as f:
             try:
                 data = json.load(f)
-                if "archetypes" not in data: data["archetypes"] = ["운영", "전개", "미드레인지", "함떡", "기타"]
-                if "win_loss_reasons" not in data: data["win_loss_reasons"] = ["패트랩 통과", "기믹 정지", "상대 증식의 G", "핸드 말림", "상대 빌드 돌파", "실수", "기타"]
                 return data
             except: pass
     return {
@@ -59,13 +73,10 @@ if 'metadata' not in st.session_state:
 if 'df' not in st.session_state:
     st.session_state.df = load_records()
 
-# --- 4. 사이드바 메뉴 (Rating) ---
+# --- 4. 사이드바 메뉴 ---
 st.sidebar.title("🎮 Rating 메뉴")
 page = st.sidebar.radio("이동할 페이지", ["📊 Rating (전적 기록/분석)", "⚙️ Rating (목록 설정)"])
 
-# ---------------------------------------------------------
-# [페이지 1] Rating (전적 기록 및 실시간 분석)
-# ---------------------------------------------------------
 if page == "📊 Rating (전적 기록/분석)":
     st.title("📊 Rating: 전적 기록 및 분석")
     df = st.session_state.df
@@ -80,11 +91,9 @@ if page == "📊 Rating (전적 기록/분석)":
         with c3:
             reason_counts = df['승패 요인'].value_counts().reset_index()
             fig = px.pie(reason_counts, values='count', names='승패 요인', title="주요 승패 요인", height=250)
-            fig.update_layout(margin=dict(l=10, r=10, t=40, b=10))
             st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
-    st.subheader("📝 Rating 결과 입력")
     
     if st.button("➕ 새로운 경기 추가"):
         new_no = df["NO."].max() + 1 if not df.empty else 1
@@ -101,27 +110,22 @@ if page == "📊 Rating (전적 기록/분석)":
         st.session_state.df = pd.concat([df, new_row], ignore_index=True)
         st.rerun()
 
-    # ✨ [핵심] 들여쓰기 수정 및 모든 컬럼 중앙 정렬(alignment="center") 적용
+    # ⚠️ alignment="center"를 제거하여 에러를 해결했습니다. 정렬은 상단 CSS가 담당합니다.
     edited_df = st.data_editor(
         st.session_state.df, 
         use_container_width=True, 
         num_rows="dynamic",
         hide_index=True,
-        key="rating_editor_vFinal",
+        key="rating_editor_v6",
         column_config={
-            "NO.": st.column_config.NumberColumn("No.", disabled=True, width="small", alignment="center"),
-            "날짜": st.column_config.TextColumn("날짜", width="medium", alignment="center"),
-            "선후공": st.column_config.SelectboxColumn("선/후", options=["선", "후"], width="small", alignment="center"),
-            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width="small", alignment="center"),
-            "매치 상세": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width="small", alignment="center"),
-            "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata["my_decks"], alignment="center"),
-            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata["opp_decks"], alignment="center"),
-            "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata["archetypes"], alignment="center"),
-            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata["target_cards"], alignment="center"),
-            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.metadata["win_loss_reasons"], alignment="center"),
+            "NO.": st.column_config.NumberColumn("No.", disabled=True, width="small"),
+            "날짜": st.column_config.TextColumn("날짜", width="medium"),
+            "선후공": st.column_config.SelectboxColumn("선/후", options=["선", "후"], width="small"),
+            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width="small"),
+            "매치 상세": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width="small"),
             "브릭": st.column_config.CheckboxColumn("브릭", width="small"),
             "실수": st.column_config.CheckboxColumn("실수", width="small"),
-            "비고": st.column_config.TextColumn("비고", width="large", alignment="center")
+            "비고": st.column_config.TextColumn("비고", width="large")
         }
     )
 
@@ -131,11 +135,9 @@ if page == "📊 Rating (전적 기록/분석)":
         st.success("데이터가 저장되었습니다!")
         st.rerun()
 
-# ---------------------------------------------------------
-# [페이지 2] Rating (목록 설정 관리)
-# ---------------------------------------------------------
 else:
     st.title("⚙️ Rating: 목록 설정 관리")
+    # ... (생략된 설정 관리 페이지 코드는 기존과 동일합니다) ...
     m_col1, m_col2 = st.columns(2)
     with m_col1:
         my_decks_str = st.text_area("내 덱 리스트", ", ".join(st.session_state.metadata["my_decks"]), height=150)

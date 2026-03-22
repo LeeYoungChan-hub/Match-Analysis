@@ -25,8 +25,15 @@ def _compact_layout_css() -> None:
         .stTabs [data-baseweb="tab-panel"] { padding-top: 0.28rem !important; }
         div[data-testid="stVerticalBlock"] > div { gap: 0.28rem !important; }
         div[data-testid="stElementContainer"] { margin-bottom: 0.25rem !important; }
-        [data-testid="stDataFrame"] { margin-bottom: 0.15rem !important; font-size: 0.78rem !important; }
-        [data-testid="stDataFrame"] * { line-height: 1.15 !important; }
+        [data-testid="stDataFrame"] { margin-bottom: 0.15rem !important; font-size: 9px !important; }
+        [data-testid="stDataFrame"] * { line-height: 1.1 !important; font-size: 9px !important; }
+        /* 열 헤더가 좁은 칸에서 두 줄로 내려가 보이는 현상 완화 */
+        [data-testid="stDataFrame"] [role="columnheader"],
+        [data-testid="stDataFrame"] [role="columnheader"] * {
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
         .stDownloadButton { margin-top: 0.1rem !important; }
         .stDownloadButton button { padding: 0.3rem 0.65rem !important; font-size: 0.8rem !important; min-height: 2rem !important; }
         @media screen and (max-aspect-ratio: 1/1) {
@@ -46,18 +53,22 @@ _compact_layout_css()
 
 # 2. 데이터 및 설정값 초기화
 FILENAME = "2026.03 레이팅 - Record.csv"
+# NO. ~ 점수 열 공통 너비 (픽셀)
+COL_W_NO_TO_SCORE = "70px"
 
 if 'df' not in st.session_state:
     try:
         st.session_state.df = pd.read_csv(FILENAME)
+        if "세트 전적" in st.session_state.df.columns:
+            st.session_state.df = st.session_state.df.rename(columns={"세트 전적": "세트"})
         # 데이터 로드 시 체크박스 열을 불리언 타입으로 확실히 변환
         st.session_state.df['브릭'] = pd.to_numeric(st.session_state.df['브릭'], errors='coerce').fillna(0).astype(bool)
         st.session_state.df['실수'] = pd.to_numeric(st.session_state.df['실수'], errors='coerce').fillna(0).astype(bool)
     except:
-        columns = ["NO.", "날짜", "선후공", "결과", "세트 전적", "점수", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
+        columns = ["NO.", "날짜", "선후공", "결과", "세트", "점수", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
         sub_label_row = {
-            "NO.": "0", "날짜": "Date", "선후공": "0.00%", "결과": "0.00%", 
-            "세트 전적": "Result", "점수": "0", "내 덱": "Use.deck", 
+            "NO.": "0", "날짜": "Date", "선후공": "0.00%", "결과": "0.00%",
+            "세트": "Result", "점수": "0", "내 덱": "Use.deck",
             "상대 덱": "Opp. deck", "아키타입": "Plus Arch.", "승패 요인": "W/L Factor",
             "특정 카드": "Certain Card", "브릭": "0", "실수": "0", "비고": "Detail"
         }
@@ -125,6 +136,13 @@ def _apply_guide_stats_from_records(guide: pd.DataFrame, records: pd.DataFrame) 
     return g
 
 
+def _single_guide_row(guide: pd.DataFrame) -> pd.DataFrame:
+    """가이드는 항상 1행만 사용 (위젯/세션에서 빈 행이 붙는 경우 제거)."""
+    if guide is None or len(guide) == 0:
+        return guide
+    return guide.iloc[[0]].copy().reset_index(drop=True)
+
+
 def _persist_record_csv(guide: pd.DataFrame, records: pd.DataFrame) -> None:
     merged = pd.concat([guide, records], ignore_index=True)
     st.session_state.df = merged
@@ -141,11 +159,14 @@ tab1, tab2 = st.tabs(["📊 Record", "⚙️ Setting"])
 # TAB 1: Record 페이지
 # ---------------------------------------------------------
 with tab1:
+    if "세트 전적" in st.session_state.df.columns:
+        st.session_state.df = st.session_state.df.rename(columns={"세트 전적": "세트"})
+
     st.title("📊 Rating Dashboard")
     st.caption("가이드·경기 기록을 바꾸면 자동으로 CSV에 저장됩니다.")
 
-    # 1행(가이드)과 나머지(데이터) 분리
-    guide_df = st.session_state.df.iloc[[0]].copy()
+    # 1행(가이드)과 나머지(데이터) 분리 — 가이드는 항상 1행만
+    guide_df = _single_guide_row(st.session_state.df.iloc[[0]].copy())
     data_df = st.session_state.df.iloc[1:].copy()
 
     # 가이드가 위에 있어 같은 실행에서 편집 중인 표를 쓸 수 없음 → 직전 실행의 편집본 사용
@@ -157,11 +178,17 @@ with tab1:
     edited_guide = st.data_editor(
         guide_df,
         use_container_width=True,
-        height=100,
+        height=70,
+        num_rows="fixed",
+        hide_index=True,
         key="guide_editor",
         column_config={
-            "NO.": st.column_config.TextColumn("NO.", disabled=True),
-            "점수": st.column_config.TextColumn("점수", disabled=True),
+            "NO.": st.column_config.TextColumn("NO.", disabled=True, width=COL_W_NO_TO_SCORE),
+            "날짜": st.column_config.TextColumn("날짜", width=COL_W_NO_TO_SCORE),
+            "선후공": st.column_config.TextColumn("선후공", width=COL_W_NO_TO_SCORE),
+            "결과": st.column_config.TextColumn("결과", width=COL_W_NO_TO_SCORE),
+            "세트": st.column_config.TextColumn("세트", width=COL_W_NO_TO_SCORE),
+            "점수": st.column_config.TextColumn("점수", disabled=True, width=COL_W_NO_TO_SCORE),
             "브릭": st.column_config.NumberColumn("브릭", format="%d", disabled=True),
             "실수": st.column_config.NumberColumn("실수", format="%d", disabled=True),
         },
@@ -175,9 +202,12 @@ with tab1:
         height=320,
         key="data_editor",
         column_config={
-            "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"]),
-            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"]),
-            "세트 전적": st.column_config.SelectboxColumn("세트 전적", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"]),
+            "NO.": st.column_config.TextColumn("NO.", width=COL_W_NO_TO_SCORE),
+            "날짜": st.column_config.TextColumn("날짜", width=COL_W_NO_TO_SCORE),
+            "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], width=COL_W_NO_TO_SCORE),
+            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width=COL_W_NO_TO_SCORE),
+            "세트": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=COL_W_NO_TO_SCORE),
+            "점수": st.column_config.TextColumn("점수", width=COL_W_NO_TO_SCORE),
             "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.options["내 덱"]),
             "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.options["상대 덱"]),
             "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.options["특정 카드"]),
@@ -189,7 +219,7 @@ with tab1:
     )
     st.session_state.last_edited_record_data = edited_data.copy()
 
-    guide_to_save = _apply_guide_stats_from_records(edited_guide, edited_data)
+    guide_to_save = _apply_guide_stats_from_records(_single_guide_row(edited_guide), edited_data)
     _persist_record_csv(guide_to_save, edited_data)
 
     csv = st.session_state.df.to_csv(index=False).encode('utf-8-sig')

@@ -5,7 +5,7 @@ import pandas as pd
 st.set_page_config(page_title="Rating Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
 # 표(data_editor) 셀 글자 크기 · NO.~점수 열 너비 (제목/캡션은 건드리지 않음)
-CELL_FONT_PX = "15px"
+CELL_FONT_PX = "10px"
 COL_W_NO_TO_SCORE = "92px"
 
 
@@ -284,7 +284,7 @@ with tab_record:
         data_df,
         num_rows="dynamic",
         use_container_width=True,
-        height=400,
+        height="content",
         key="data_editor",
         column_config={
             "NO.": st.column_config.TextColumn("NO.", width=COL_W_NO_TO_SCORE),

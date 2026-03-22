@@ -4,6 +4,46 @@ import pandas as pd
 # 1. 페이지 설정
 st.set_page_config(page_title="Rating Dashboard", layout="wide")
 
+# 세로·좁은 화면에서 한 화면에 가깝게 보이도록 여백·타이포 축소
+def _compact_layout_css() -> None:
+    st.markdown(
+        """
+        <style>
+        .block-container {
+            padding-top: 0.45rem !important;
+            padding-bottom: 0.3rem !important;
+            padding-left: 0.55rem !important;
+            padding-right: 0.55rem !important;
+            max-width: 100% !important;
+        }
+        section[data-testid="stMain"] > div { padding-top: 0.3rem !important; padding-bottom: 0.2rem !important; }
+        h1 { font-size: clamp(1rem, 4vw, 1.4rem) !important; line-height: 1.15 !important; margin: 0 0 0.2rem 0 !important; padding: 0 !important; }
+        h2, h3 { font-size: clamp(0.82rem, 3.4vw, 1.05rem) !important; line-height: 1.15 !important; margin: 0.28rem 0 0.12rem 0 !important; padding: 0 !important; }
+        [data-testid="stCaption"] { margin-bottom: 0.22rem !important; font-size: 0.72rem !important; line-height: 1.2 !important; }
+        .stTabs [data-baseweb="tab-list"] { min-height: 1.85rem !important; gap: 0.2rem !important; margin-bottom: 0 !important; }
+        .stTabs [data-baseweb="tab"] { padding: 0.28rem 0.5rem !important; font-size: 0.82rem !important; }
+        .stTabs [data-baseweb="tab-panel"] { padding-top: 0.28rem !important; }
+        div[data-testid="stVerticalBlock"] > div { gap: 0.28rem !important; }
+        div[data-testid="stElementContainer"] { margin-bottom: 0.25rem !important; }
+        [data-testid="stDataFrame"] { margin-bottom: 0.15rem !important; font-size: 0.78rem !important; }
+        [data-testid="stDataFrame"] * { line-height: 1.15 !important; }
+        .stDownloadButton { margin-top: 0.1rem !important; }
+        .stDownloadButton button { padding: 0.3rem 0.65rem !important; font-size: 0.8rem !important; min-height: 2rem !important; }
+        @media screen and (max-aspect-ratio: 1/1) {
+            .block-container { padding-top: 0.3rem !important; padding-bottom: 0.2rem !important; }
+            h1 { font-size: 1.08rem !important; }
+            h2, h3 { font-size: 0.82rem !important; margin: 0.2rem 0 0.08rem 0 !important; }
+            [data-testid="stCaption"] { font-size: 0.68rem !important; }
+            .stTabs [data-baseweb="tab"] { font-size: 0.78rem !important; padding: 0.22rem 0.42rem !important; }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+_compact_layout_css()
+
 # 2. 데이터 및 설정값 초기화
 FILENAME = "2026.03 레이팅 - Record.csv"
 
@@ -117,6 +157,7 @@ with tab1:
     edited_guide = st.data_editor(
         guide_df,
         use_container_width=True,
+        height=100,
         key="guide_editor",
         column_config={
             "NO.": st.column_config.TextColumn("NO.", disabled=True),
@@ -131,6 +172,7 @@ with tab1:
         data_df,
         num_rows="dynamic",
         use_container_width=True,
+        height=320,
         key="data_editor",
         column_config={
             "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"]),

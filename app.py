@@ -9,12 +9,12 @@ META_FILE = 'metadata_config.json'
 
 st.set_page_config(page_title="YGO Match Tracker", layout="wide")
 
-# --- 2. [디자인] CSS ---
+# --- 2. [디자인] CSS (중앙 정렬 보조) ---
 st.markdown("""
     <style>
     [data-testid="stTableIdxColumn"] { display: none !important; width: 0px !important; }
     [data-testid="stDataFrameResizable"] div[role="grid"] div[role="row"] div:first-child svg { display: none !important; }
-
+    
     /* 분석 페이지 1/3 너비 */
     .analysis-wrapper { width: 33.3%; min-width: 400px; margin-left: 0; }
     .styled-table { 
@@ -61,25 +61,6 @@ def load_records():
 def save_records(df):
     df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
 
-def render_styled_table(title, target_df):
-    calc_df = target_df[target_df['결과'].isin(['승', '패'])]
-    total = len(calc_df)
-    if total == 0: return f'<table class="styled-table"><tr><th>{title}</th></tr><tr><td>데이터 없음</td></tr></table>'
-    wins = len(calc_df[calc_df['결과'] == '승'])
-    losses = total - wins
-    f_df = calc_df[calc_df['선후공'] == '선']
-    s_df = calc_df[calc_df['선후공'] == '후']
-    def get_rate(a, b): return (a/b*100) if b > 0 else 0
-    return f"""
-    <table class="styled-table">
-        <tr><th colspan="5">{title}</th></tr>
-        <tr><th>Overall</th><th>Games</th><th>Win Rate</th><th>W</th><th>L</th></tr>
-        <tr><td>Result</td><td>{total}</td><td>{get_rate(wins, total):.2f}%</td><td class="win-val">{wins}</td><td class="loss-val">{losses}</td></tr>
-        <tr><th>Coin</th><th>1st</th><th>2nd</th><th>1st Rate</th><th>2nd Rate</th></tr>
-        <tr><td>Result</td><td class="win-val">{len(f_df)}</td><td class="loss-val">{len(s_df)}</td><td class="win-val">{get_rate(len(f_df), total):.1f}%</td><td class="loss-val">{get_rate(len(s_df), total):.1f}%</td></tr>
-    </table>
-    """
-
 # --- 4. 메인 로직 ---
 if 'metadata' not in st.session_state: st.session_state.metadata = load_metadata()
 if 'df' not in st.session_state: st.session_state.df = load_records()
@@ -89,34 +70,39 @@ menu = st.sidebar.radio("메뉴", ["📊 기록", "📈 분석", "⚙️ 설정"
 if menu == "📊 기록":
     st.title("📊 Match Records")
     if st.button("➕ 새로운 경기 추가"):
-        new_row = pd.DataFrame([{"NO.": str(len(st.session_state.df)+1), "날짜": pd.Timestamp.now().strftime("%m.%d"), "선후공": "선", "결과": "승", "세트 전적": "OO", "내 덱": st.session_state.metadata["my_decks"][0], "상대 덱": st.session_state.metadata["opp_decks"][0], "아키타입": st.session_state.metadata["archetypes"][0], "승패 요인": st.session_state.metadata["win_loss_reasons"][0], "특정 카드": st.session_state.metadata["target_cards"][0], "브릭": False, "실수": False, "비고": ""}])
+        new_row = pd.DataFrame([{"NO.": str(len(st.session_state.df)+1), "날짜": pd.Timestamp.now().strftime("%m.%d"), "선후공": "선", "결과": "승", "세트 전적": "OO", "내 덱": st.session_state.metadata["my_decks"][0], "상대 deck": st.session_state.metadata["opp_decks"][0], "아키타입": st.session_state.metadata["archetypes"][0], "승패 요인": st.session_state.metadata["win_loss_reasons"][0], "특정 카드": st.session_state.metadata["target_cards"][0], "브릭": False, "실수": False, "비고": ""}])
         st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
         save_records(st.session_state.df)
         st.rerun()
 
-    # [핵심 수정] 칸 조정 및 중앙 정렬 옵션 추가
-    edited_df = st.data_editor(st.session_state.df, use_container_width=True, num_rows="dynamic", hide_index=True, key="main_editor",
+    # [수정 포인트] width에 문자열 대신 숫자(px) 사용 및 alignment 설정
+    edited_df = st.data_editor(
+        st.session_state.df, 
+        use_container_width=True, 
+        num_rows="dynamic", 
+        hide_index=True, 
+        key="main_editor",
         column_config={
-            "NO.": st.column_config.TextColumn("NO.", width="small", alignment="center"),
-            "날짜": st.column_config.TextColumn("날짜", width="small", alignment="center"),
-            "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], width="small", alignment="center"),
-            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width="small", alignment="center"),
-            "세트 전적": st.column_config.SelectboxColumn("세트 전적", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width="small", alignment="center"),
-            "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata["my_decks"], alignment="center"),
-            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata["opp_decks"], alignment="center"),
-            "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata["archetypes"], alignment="center"),
-            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.metadata["win_loss_reasons"], width="medium", alignment="center"),
-            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata["target_cards"], alignment="center"),
-            "브릭": st.column_config.CheckboxColumn("브릭", width="small", alignment="center"),
-            "실수": st.column_config.CheckboxColumn("실수", width="small", alignment="center"),
-            "비고": st.column_config.TextColumn("비고", width="large") # 비고 칸 크게 확장
-        })
+            "NO.": st.column_config.TextColumn("NO.", width=40, alignment="center"),
+            "날짜": st.column_config.TextColumn("날짜", width=60, alignment="center"),
+            "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], width=70, alignment="center"),
+            "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width=70, alignment="center"),
+            "세트 전적": st.column_config.SelectboxColumn("세트 전적", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=90, alignment="center"),
+            "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata["my_decks"], width=120, alignment="center"),
+            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata["opp_decks"], width=120, alignment="center"),
+            "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata["archetypes"], width=100, alignment="center"),
+            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.metadata["win_loss_reasons"], width=120, alignment="center"),
+            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata["target_cards"], width=100, alignment="center"),
+            "브릭": st.column_config.CheckboxColumn("브릭", width=50, alignment="center"),
+            "실수": st.column_config.CheckboxColumn("실수", width=50, alignment="center"),
+            "비고": st.column_config.TextColumn("비고", width=400)
+        }
+    )
     
     if not edited_df.equals(st.session_state.df):
         st.session_state.df = edited_df
         save_records(edited_df)
         st.rerun()
-
 elif menu == "📈 분석":
     st.title("📈 Rating Analysis")
     df = st.session_state.df

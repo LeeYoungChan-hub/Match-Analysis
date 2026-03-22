@@ -152,34 +152,21 @@ if page == "📊 기록":
 
 elif page == "📈 분석":
     st.title("📈 Rating Analysis")
-    df_ana = load_records() # 최신 데이터 로드
-    
+    df_ana = load_records()
     if not df_ana.empty:
-        # --- [수정] 아래 div 태그가 모든 표를 1/3 너비로 가둡니다 ---
         st.markdown('<div class="analysis-wrapper">', unsafe_allow_html=True)
-        
-        # 1. Overall Data
         st.markdown(render_styled_table("Overall Data", df_ana), unsafe_allow_html=True)
         
-        # 2. 내 덱별 승률
         st.subheader("덱별 승률")
-        sel_my = st.selectbox("내 덱 선택", st.session_state.metadata["my_decks"], label_visibility="collapsed", key="ana_my_deck")
+        sel_my = st.selectbox("내 덱 선택", st.session_state.metadata["my_decks"], label_visibility="collapsed")
         st.markdown(render_styled_table(sel_my, df_ana[df_ana['내 덱'] == sel_my]), unsafe_allow_html=True)
         
-        # 3. 상대 덱별 승률 (멀티 필터링)
         st.subheader("상대 덱별 승률")
-        col1, col2 = st.columns(2)
-        with col1:
-            m_my = st.selectbox("Use.Deck", st.session_state.metadata["my_decks"], label_visibility="collapsed", key="m_my_deck")
-        with col2:
-            m_opp = st.selectbox("Opp.Deck", st.session_state.metadata["opp_decks"], label_visibility="collapsed", key="m_opp_deck")
-        
-        # 이중 필터링 결과 출력
-        final_df = df_ana[(df_ana['내 덱'] == m_my) & (df_ana['상대 덱'] == m_opp)]
-        st.markdown(render_styled_table(f"{m_my} vs {m_opp}", final_df), unsafe_allow_html=True)
-        
-        st.markdown('</div>', unsafe_allow_html=True) # wrapper 닫기
-        # --- [수정 끝] ---
+        c1, c2 = st.columns(2)
+        with c1: m_my = st.selectbox("Use.Deck", st.session_state.metadata["my_decks"], label_visibility="collapsed", key="m_my")
+        with c2: m_opp = st.selectbox("Opp.Deck", st.session_state.metadata["opp_decks"], label_visibility="collapsed", key="m_opp")
+        st.markdown(render_styled_table("결과", df_ana[(df_ana['내 덱']==m_my) & (df_ana['상대 덱']==m_opp)]), unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 else:
     st.title("⚙️ Rating 설정")

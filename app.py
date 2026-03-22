@@ -97,35 +97,55 @@ page = st.sidebar.radio("메뉴", ["📊 Record", "📈 Analysis", "🖼️ Grap
 # --- PAGE: Record ---
 if page == "📊 Record":
     st.title("📊 Match Record")
+    
+    # 상단 버튼 배치
     if st.button("➕ 새로운 경기 추가"):
         m = st.session_state.metadata
-        new_row = pd.DataFrame([{"NO.": str(len(st.session_state.df)+1), "날짜": pd.Timestamp.now().strftime("%m.%d"), "선후공": "선", "결과": "승", "세트": "OO", "점수": "0", "내 덱": m["my_decks"][0], "상대 덱": m["opp_decks"][0], "아키타입": "", "승패 요인": m["win_loss_reasons"][0], "특정 카드": "", "브릭": False, "실수": False, "비고": ""}])
+        # NO.만 계산해서 넣고 나머지는 빈 값으로 설정
+        new_no = str(len(st.session_state.df) + 1)
+        
+        # 빈 행 생성 (기본값 대신 빈 문자열로 초기화)
+        new_row = pd.DataFrame([{
+            "NO.": new_no, 
+            "날짜": "", "선후공": "선", "결과": "승", "세트": "", 
+            "점수": "", "내 덱": "", "상대 덱": "", "아키타입": "", 
+            "승패 요인": "", "특정 카드": "", "브릭": False, 
+            "실수": False, "비고": ""
+        }])
+        
         st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
         save_records(st.session_state.df)
         st.rerun()
 
+    # 데이터 에디터 (height=800으로 설정하여 화면 아래로 길게 늘림)
     edited = st.data_editor(
-        st.session_state.df, use_container_width=True, num_rows="dynamic", hide_index=True, key="editor_vfinal",
+        st.session_state.df, 
+        use_container_width=True, 
+        num_rows="dynamic", 
+        hide_index=True, 
+        key="editor_vfinal",
+        height=800,  # <-- 이 부분이 표의 높이를 결정합니다.
         column_config={
             "NO.": st.column_config.TextColumn("NO.", width=50),
             "날짜": st.column_config.TextColumn("날짜", width=60),
             "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], width=70),
             "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], width=60),
             "세트": st.column_config.SelectboxColumn("세트", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"], width=60),
-            "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata["my_decks"], width=60),
-            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata["opp_decks"], width=80),
-            "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata["archetypes"], width=80),
-            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.metadata["win_loss_reasons"], width=80),
-            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata["target_cards"], width=80),
+            "내 덱": st.column_config.SelectboxColumn("내 덱", options=st.session_state.metadata["my_decks"], width=100),
+            "상대 덱": st.column_config.SelectboxColumn("상대 덱", options=st.session_state.metadata["opp_decks"], width=120),
+            "아키타입": st.column_config.SelectboxColumn("아키타입", options=st.session_state.metadata["archetypes"], width=100),
+            "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.metadata["win_loss_reasons"], width=100),
+            "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata["target_cards"], width=100),
             "브릭": st.column_config.CheckboxColumn("브릭", width=60),
             "실수": st.column_config.CheckboxColumn("실수", width=60),
-            "비고": st.column_config.TextColumn("비고", width=350)
+            "비고": st.column_config.TextColumn("비고", width=400)
         }
     )
+
+    # 데이터 변경 감지 시 저장
     if not edited.equals(st.session_state.df):
         save_records(edited)
         st.rerun()
-
 # --- PAGE: Analysis ---
 elif page == "📈 Analysis":
     st.title("📈 Rating Analysis")

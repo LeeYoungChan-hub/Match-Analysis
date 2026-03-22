@@ -4,109 +4,80 @@ import pandas as pd
 # 1. 페이지 설정
 st.set_page_config(page_title="Rating", layout="wide")
 
-# 2. 스크린샷 스타일 재현을 위한 CSS (서브 라벨 스타일 포함)
-st.markdown("""
-    <style>
-    .metric-container {
-        background-color: #ffffff;
-        padding: 15px;
-        border-radius: 10px;
-        border: 1px solid #eeeeee;
-        box-shadow: 1px 1px 3px rgba(0,0,0,0.05);
-        text-align: center;
-        margin-bottom: 10px;
-    }
-    .main-label {
-        font-size: 26px;
-        font-weight: bold;
-        color: #333;
-        margin-bottom: 0px;
-    }
-    .sub-label {
-        font-size: 14px;
-        color: #888; /* 회색 서브 라벨 */
-        margin-top: -5px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
 st.title("📊 Rating Dashboard")
 
-# 3. 상단 요약 섹션 (사진과 똑같은 서브 라벨 추가)
-col1, col2, col3, col4 = st.columns(4)
+# 2. 데이터 로드 및 컬럼 설정
+# 사진과 동일하게 메인 라벨(한글) 밑에 서브 라벨(영어)이 오는 구조로 설정
+column_mapping = {
+    "NO.": "NO.\n(경기)",
+    "날짜": "날짜\n(Date)",
+    "선후공": "선후공\n(40.46%)",
+    "결과": "결과\n(62.43%)",
+    "세트 전적": "세트 전적\n(Result)",
+    "점수": "점수\n(Rate)",
+    "내 덱": "내 덱\n(Use.deck)",
+    "상대 덱": "상대 덱\n(Opp. deck)",
+    "아키타입": "아키타입\n(Plus Arch.)",
+    "승패 요인": "승패 요인\n(W/L Factor)",
+    "특정 카드": "특정 카드\n(Certain Card)",
+    "브릭": "브릭\n(10)",
+    "실수": "실수\n(30)",
+    "비고": "비고",
+    "Deatil": "Deatil"
+}
 
-with col1:
-    st.markdown('''
-        <div class="metric-container">
-            <p class="main-label">62.43%</p>
-            <p class="sub-label">Result</p>
-        </div>
-    ''', unsafe_allow_html=True)
-with col2:
-    st.markdown('''
-        <div class="metric-container">
-            <p class="main-label">40.46%</p>
-            <p class="sub-label">First</p>
-        </div>
-    ''', unsafe_allow_html=True)
-with col3:
-    st.markdown('''
-        <div class="metric-container">
-            <p class="main-label">71.21%</p>
-            <p class="sub-label">Second</p>
-        </div>
-    ''', unsafe_allow_html=True)
-with col4:
-    st.markdown('''
-        <div class="metric-container">
-            <p class="main-label">124</p>
-            <p class="sub-label">Games</p>
-        </div>
-    ''', unsafe_allow_html=True)
-
-st.divider()
-
-# 4. 하단 데이터 표 (기존 구조 유지)
-st.subheader("📝 경기 기록 데이터")
-
-# 초기 컬럼 설정
-columns = [
-    "NO.", "날짜", "선후공", "결과", "세트 전적", "점수", 
-    "내 덱", "상대 덱", "아키타입", "승패 요인", 
-    "특정 카드", "브릭", "실수", "비고"
-]
-
-# CSV 파일이 있다면 불러오고, 없다면 샘플 데이터 생성
+# 초기 데이터 구성
 if 'df' not in st.session_state:
     try:
-        # 파일이 있는 경우 불러오기
-        st.session_state.df = pd.read_csv("2026.03 레이팅 - Record.csv")
+        # 기존 파일이 있으면 불러오기
+        raw_df = pd.read_csv("2026.03 레이팅 - Record.csv")
+        # 첫 번째 행이 영어 라벨인 경우 제외하고 로드
+        if not raw_df.empty and raw_df.iloc[0]['NO.'] == '경기':
+            st.session_state.df = raw_df.iloc[1:].reset_index(drop=True)
+        else:
+            st.session_state.df = raw_df
     except:
-        # 파일이 없는 경우 빈 틀 생성
-        st.session_state.df = pd.DataFrame(columns=columns)
+        # 파일이 없으면 빈 데이터프레임 생성
+        st.session_state.df = pd.DataFrame(columns=column_mapping.keys())
 
-# 데이터 에디터 출력
+# 3. 데이터 에디터 (표 형식)
+# 서브 라벨을 column_config의 label로 적용
+st.subheader("📝 경기 기록")
+
 edited_df = st.data_editor(
     st.session_state.df,
     num_rows="dynamic",
     use_container_width=True,
     column_config={
-        "브릭": st.column_config.CheckboxColumn("브릭"),
-        "실수": st.column_config.CheckboxColumn("실수"),
-        "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"]),
-        "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"])
+        "NO.": st.column_config.Column("NO.\n(경기)"),
+        "날짜": st.column_config.Column("날짜\n(Date)"),
+        "선후공": st.column_config.Column("선후공\n(40.46%)"),
+        "결과": st.column_config.Column("결과\n(62.43%)"),
+        "세트 전적": st.column_config.Column("세트 전적\n(Result)"),
+        "점수": st.column_config.Column("점수\n(Rate)"),
+        "내 덱": st.column_config.Column("내 덱\n(Use.deck)"),
+        "상대 덱": st.column_config.Column("상대 덱\n(Opp. deck)"),
+        "아키타입": st.column_config.Column("아키타입\n(Plus Arch.)"),
+        "승패 요인": st.column_config.Column("승패 요인\n(W/L Factor)"),
+        "특정 카드": st.column_config.Column("특정 카드\n(Certain Card)"),
+        "브릭": st.column_config.CheckboxColumn("브릭\n(10)"),
+        "실수": st.column_config.CheckboxColumn("실수\n(30)"),
     }
 )
 
-# 저장 및 다운로드 버튼
-if st.button("💾 변경사항 저장"):
-    st.session_state.df = edited_df
-    st.success("데이터가 로컬 세션에 저장되었습니다.")
+# 4. 저장 및 관리
+col_save, col_down = st.columns([1, 4])
+with col_save:
+    if st.button("💾 데이터 저장"):
+        st.session_state.df = edited_df
+        st.success("저장 완료!")
 
-csv = edited_df.to_csv(index=False).encode('utf-8-sig')
-st.download_button(
-    label="📥 CSV 다운로드 (GitHub 업데이트용)",
-    data=csv,
-    file_name="2026.03 레이팅 - Record.csv",
-    mime='text/csv',
-)
+with col_down:
+    # 깃허브 업로드용 CSV 생성 (원래의 깔끔한 컬럼명으로 저장)
+    csv = edited_df.to_csv(index=False).encode('utf-8-sig')
+    st.download_button(
+        label="📥 CSV 다운로드",
+        data=csv,
+        file_name="2026.03 레이팅 - Record.csv",
+        mime='text/csv',
+    )

@@ -4,13 +4,14 @@ import os
 import json
 import plotly.express as px
 
-# --- 1. 기본 설정 ---
-RECORD_FILE = 'yugioh_records.csv'
+# --- 1. [수정] 파일 경로 변경 (새 파일로 시작) ---
+# 기존 파일 이름이 아닌 새로운 이름을 사용하면 깨끗하게 시작됩니다.
+RECORD_FILE = 'ygo_data.csv' 
 META_FILE = 'metadata_config.json'
 
 st.set_page_config(page_title="YGO Rating Analysis", layout="wide")
 
-# --- 2. [디자인] CSS (불필요한 스타일 제거 및 깔끔한 정렬) ---
+# --- 2. [디자인] CSS (깔끔한 헤더 유지) ---
 st.markdown("""
     <style>
     [data-testid="stDataFrameResizable"] div[role="grid"] div[role="row"] div { 
@@ -44,8 +45,8 @@ def load_records():
     cols = ["NO.", "날짜", "선후공", "결과", "세트", "점수", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
     if os.path.exists(RECORD_FILE):
         df = pd.read_csv(RECORD_FILE, dtype=str).fillna("")
-        # 불러올 때 혹시라도 남아있을 쓰레기 데이터 강제 필터링
-        df = df[~df['NO.'].str.contains("경기|Date", na=False)]
+        # 불러올 때 가짜 요약 데이터(경기, Date 등)가 포함된 행은 무조건 제외
+        df = df[~df['NO.'].astype(str).str.contains("경기|Date", na=False)]
         for col in ["브릭", "실수"]:
             if col in df.columns:
                 df[col] = df[col].apply(lambda x: str(x).lower() in ['true', '1'])
@@ -56,7 +57,7 @@ def save_records(df):
     df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
     st.session_state.df = df.reset_index(drop=True)
 
-# --- 4. 앱 메인 로직 ---
+# --- 4. 앱 메인 ---
 if 'metadata' not in st.session_state: st.session_state.metadata = load_metadata()
 if 'df' not in st.session_state: st.session_state.df = load_records()
 
@@ -78,14 +79,13 @@ if page == "📊 Record":
         save_records(st.session_state.df)
         st.rerun()
 
-    # 2. [완전 클린] 데이터 에디터
-    # 이제 '경기', '0.0%' 같은 쓰레기 줄은 절대 나타나지 않습니다.
+    # 2. [클린 버전] 데이터 에디터 (요약 행 일절 없음)
     edited = st.data_editor(
         st.session_state.df, 
         use_container_width=True, 
         num_rows="dynamic", 
         hide_index=True, 
-        key="super_clean_editor",
+        key="clean_ygo_editor",
         height=800,
         column_config={
             "NO.": st.column_config.TextColumn("NO.", width=50),
@@ -109,8 +109,6 @@ if page == "📊 Record":
     if not edited.equals(st.session_state.df):
         save_records(edited)
         st.rerun()
-
-# (이후 Analysis, Graph, Setting 코드는 기존과 동일하게 유지)
 
 # --- Analysis, Graph, Setting (기존 로직 유지) ---
 elif page == "📈 Analysis":

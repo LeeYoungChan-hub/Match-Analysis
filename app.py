@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import json
+import numpy as np
 
 # --- 1. 기본 설정 및 파일 경로 ---
 RECORD_FILE = 'yugioh_records.csv'
@@ -9,7 +10,7 @@ META_FILE = 'metadata_config.json'
 
 st.set_page_config(page_title="YGO Rating Analysis", layout="wide")
 
-# --- 2. [디자인 설정] 분석 레이아웃 (1/2 너비 및 구분선 제거) ---
+# --- 2. [디자인 설정] ---
 STYLE_CONFIG = {
     "container_width": "50%",        
     "font_size": "14px",             
@@ -52,21 +53,26 @@ def load_records():
     cols = ["NO.", "날짜", "선후공", "결과", "세트 전적", "내 덱", "상대 덱", "아키타입", "승패 요인", "특정 카드", "브릭", "실수", "비고"]
     if os.path.exists(RECORD_FILE):
         try:
-            df = pd.read_csv(RECORD_FILE)
+            # 불러올 때 모든 빈칸을 빈 문자열("")로 대체 (None 방지)
+            df = pd.read_csv(RECORD_FILE).fillna("")
             for col in cols:
                 if col not in df.columns: df[col] = False if col in ["브릭", "실수"] else ""
-            df["브릭"] = df["브릭"].astype(bool)
-            df["실수"] = df["실수"].astype(bool)
-            df["NO."] = range(1, len(df) + 1) # 불러올 때 1부터 넘버링 강제 재지정
+            
+            # 타입 보정
+            df["브릭"] = df["브릭"].apply(lambda x: True if x == True or x == "True" else False)
+            df["실수"] = df["실수"].apply(lambda x: True if x == True or x == "True" else False)
+            df["NO."] = range(1, len(df) + 1)
             return df
         except: pass
     return pd.DataFrame(columns=cols)
 
-# 🔥 자동 저장 및 넘버링 함수
 def save_data_auto(current_df):
-    current_df["NO."] = range(1, len(current_df) + 1) # 1부터 넘버링
-    current_df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
-    st.session_state.df = current_df
+    # 저장 전 넘버링 및 빈칸 처리
+    current_df["NO."] = range(1, len(current_df) + 1)
+    # NaN이나 None을 빈 문자열로 확실히 변환하여 저장
+    save_df = current_df.replace({np.nan: "", None: ""})
+    save_df.to_csv(RECORD_FILE, index=False, encoding='utf-8-sig')
+    st.session_state.df = save_df
 
 # --- 4. 분석 표 렌더링 함수 ---
 def render_analysis_table(target_df):
@@ -93,7 +99,7 @@ def render_analysis_table(target_df):
         </table>
     """
 
-# --- 5. 세션 관리 및 메인 로직 ---
+# --- 5. 메인 로직 ---
 if 'metadata' not in st.session_state:
     st.session_state.metadata = load_metadata()
 if 'df' not in st.session_state:
@@ -106,7 +112,7 @@ if page == "📊 기록":
     
     if st.button("➕ 새로운 경기 추가"):
         new_row = pd.DataFrame([{
-            "NO.": 0, "날짜": pd.Timestamp.now().strftime("%Y-%m-%d"), 
+            "NO.": 0, "날짜": pd.Timestamp.now().strftime("%m.%d"), 
             "선후공": "선", "결과": "승", "세트 전적": "OO", 
             "내 덱": st.session_state.metadata["my_decks"][0], 
             "상대 덱": st.session_state.metadata["opp_decks"][0],
@@ -116,10 +122,10 @@ if page == "📊 기록":
             "브릭": False, "실수": False, "비고": ""
         }])
         st.session_state.df = pd.concat([st.session_state.df, new_row], ignore_index=True)
-        save_data_auto(st.session_state.df) # 추가 즉시 1부터 넘버링 및 저장
+        save_data_auto(st.session_state.df)
         st.rerun()
 
-    # 에디터의 변경사항을 실시간으로 감지하여 저장
+    # 에디터 설정
     edited_df = st.data_editor(
         st.session_state.df, 
         use_container_width=True, 
@@ -128,6 +134,7 @@ if page == "📊 기록":
         key="rating_editor",
         column_config={
             "NO.": st.column_config.NumberColumn("NO.", disabled=True, format="%d"),
+            "날짜": st.column_config.TextColumn("날짜", help="03.17 형식으로 입력 가능"), # 문자 입력 가능하게 변경
             "선후공": st.column_config.SelectboxColumn("선후공", options=["선", "후"], required=True),
             "결과": st.column_config.SelectboxColumn("결과", options=["승", "패"], required=True),
             "세트 전적": st.column_config.SelectboxColumn("세트 전적", options=["OO", "OXO", "XOO", "XX", "XOX", "OXX"]),
@@ -137,11 +144,11 @@ if page == "📊 기록":
             "승패 요인": st.column_config.SelectboxColumn("승패 요인", options=st.session_state.metadata["win_loss_reasons"]),
             "특정 카드": st.column_config.SelectboxColumn("특정 카드", options=st.session_state.metadata["target_cards"]),
             "브릭": st.column_config.CheckboxColumn("브릭"),
-            "실수": st.column_config.CheckboxColumn("실수")
+            "실수": st.column_config.CheckboxColumn("실수"),
+            "비고": st.column_config.TextColumn("비고")
         }
     )
 
-    # 데이터가 변경되었을 경우 (저장 로직 호출)
     if not edited_df.equals(st.session_state.df):
         save_data_auto(edited_df)
         st.rerun()
